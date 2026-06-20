@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DayKeeper</title>
+    <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
+    <link rel="apple-touch-icon" href="./assets/apple-touch-icon-180.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="paper-noise"></div>
+    <div class="ambient ambient-rose"></div>
+    <div class="ambient ambient-mint"></div>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Основная навигация">
+        <div class="brand">
+          <div class="brand-mark"><img src="./assets/logo-circle-64.png" alt="DayKeeper" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>
+          <div>
+            <strong>DayKeeper</strong>
+            <span>дневник заботы о себе</span>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item is-active" data-section="dashboard"><span class="nav-icon">⌂</span><span>Сегодня</span></button>
+          <button class="nav-item" data-section="tasks"><span class="nav-icon">✓</span><span>Задачи</span></button>
+          <button class="nav-item" data-section="habits"><span class="nav-icon">◌</span><span>Привычки</span></button>
+          <button class="nav-item" data-section="routine"><span class="nav-icon">☼</span><span>Рутина</span></button>
+          <button class="nav-item" data-section="health"><span class="nav-icon">♡</span><span>Состояние</span></button>
+          <button class="nav-item" data-section="nutrition"><span class="nav-icon">◍</span><span>Питание</span></button>
+          <button class="nav-item" data-section="shopping"><span class="nav-icon">□</span><span>Покупки</span></button>
+          <button class="nav-item" data-section="diary"><span class="nav-icon">✎</span><span>Дневник</span></button>
+          <button class="nav-item" data-section="birthdays"><span class="nav-icon">✦</span><span>Дни рождения</span></button>
+        </nav>
+
+        <div class="sidebar-card">
+          <p class="card-kicker">Нежное напоминание</p>
+          <strong>Ты уже держишь ритм 18 дней</strong>
+          <p>Сегодня достаточно маленького шага. Он тоже считается.</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Суббота, 20 июня</p>
+            <h1>Тихий день, собранные мысли и немного заботы</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-action" aria-label="Поиск">⌕</button>
+            <button class="primary-action">+ Новая запись</button>
+          </div>
+        </header>
+
+        <section class="section is-visible" id="dashboard">
+          <div class="hero-panel journal-hero">
+            <div class="hero-copy">
+              <p class="eyebrow">Страница дня</p>
+              <h2>Сначала заметить себя, потом уже делать дела</h2>
+              <p>Сегодня можно записать настроение, закрыть пару задач, отметить привычки и оставить маленькую мысль в дневнике.</p>
+              <div class="hero-actions">
+                <button class="primary-action" data-section="diary">Открыть дневник</button>
+                <button class="ghost-action" data-section="health">Записать состояние</button>
+              </div>
+            </div>
+            <div class="paper-note">
+              <p class="card-kicker">мысль дня</p>
+              <strong>Что сегодня повлияло на мое состояние?</strong>
+              <span>работа · разговор · отдых · тело · дом</span>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel span-2">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">Сейчас важно</p>
+                  <h3>Задачи на сегодня</h3>
+                </div>
+                <button data-section="tasks">Все</button>
+              </div>
+              <div class="task-list" id="todayTasks"></div>
+            </article>
+
+            <article class="panel accent-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">Привычки</p>
+                  <h3>Длинная серия</h3>
+                </div>
+                <span class="soft-badge">18 дней</span>
+              </div>
+              <div class="praise-card">
+                <strong>Ты нежно, но стабильно возвращаешься к себе.</strong>
+                <p>Самая длинная серия: вода, чтение и вечерняя растяжка.</p>
+              </div>
+              <div class="mini-habits" id="miniHabits"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">Эмоции</p>
+                  <h3>Состояние</h3>
+                </div>
+                <span class="soft-badge blush">Нейтральное</span>
+              </div>
+              <div class="mood-summary" id="moodSummary"></div>
+            </article>
+
+            <article class="panel span-2 routine-preview">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">Дом и тело</p>
+                  <h3>Рутина без привязки к идеальному времени</h3>
+                </div>
+                <button data-section="routine">Настроить</button>
+              </div>
+              <div class="routine-strip" id="routineStrip"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">Питание</p>
+                  <h3>Калории</h3>
+                </div>
+                <button data-section="nutrition">Интеграция</button>
+              </div>
+              <div class="calorie-mini" id="calorieMini"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="tasks">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Планирование</p>
+              <h2>Задачи</h2>
+            </div>
+            <div class="toolbar">
+              <div class="segmented" id="taskFilters">
+                <button class="is-selected" data-filter="today">Сегодня</button>
+                <button data-filter="week">Неделя</button>
+                <button data-filter="month">Месяц</button>
+                <button data-filter="all">Все</button>
+              </div>
+              <div class="segmented compact" id="viewToggle">
+                <button class="is-selected" data-view="cards">Карточки</button>
+                <button data-view="list">Список</button>
+              </div>
+            </div>
+          </div>
+          <div class="content-grid" id="taskBoard"></div>
+        </section>
+
+        <section class="section" id="habits">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Маленькие шаги</p>
+              <h2>Трекинг привычек</h2>
+            </div>
+            <button class="secondary-action">+ Привычка</button>
+          </div>
+          <div class="habit-layout">
+            <article class="panel praise-panel">
+              <p class="card-kicker">Похвала за постоянство</p>
+              <h3>18 дней заботы подряд</h3>
+              <p>Это уже не “надо бы”, а твой личный ритм. Даже короткая отметка поддерживает серию.</p>
+              <div class="streak-ribbon">Самая сильная привычка: вечерняя растяжка</div>
+            </article>
+            <article class="panel span-2">
+              <div class="habit-table" id="habitTable"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="routine">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Ритм</p>
+              <h2>Рутина</h2>
+            </div>
+            <button class="secondary-action">+ Рутинная задача</button>
+          </div>
+          <div class="routine-types" id="routineBoard"></div>
+        </section>
+
+        <section class="section" id="health">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Состояние</p>
+              <h2>Эмоции и параметры</h2>
+            </div>
+            <button class="secondary-action">+ Запись</button>
+          </div>
+          <div class="health-layout">
+            <article class="panel span-2">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">Дневник эмоций</p>
+                  <h3>Как я сейчас?</h3>
+                </div>
+                <span class="soft-badge blush">3 состояния</span>
+              </div>
+              <div class="mood-board" id="moodBoard"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">События</p>
+                  <h3>Что влияет</h3>
+                </div>
+              </div>
+              <div class="life-tags" id="lifeTags"></div>
+            </article>
+            <article class="panel span-2">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">Параметры тела</p>
+                  <h3>Динамика</h3>
+                </div>
+                <button>Добавить замер</button>
+              </div>
+              <div class="body-grid" id="bodyMetrics"></div>
+              <div class="soft-chart" id="bodyChart"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">Калории</p>
+                  <h3>Баланс</h3>
+                </div>
+              </div>
+              <div class="calorie-chart" id="healthCalories"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="nutrition">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Интеграция</p>
+              <h2>Питание и калории</h2>
+            </div>
+            <button class="secondary-action">Подключить приложение</button>
+          </div>
+          <div class="nutrition-grid">
+            <article class="panel span-2">
+              <div class="panel-head">
+                <div>
+                  <p class="card-kicker">Сегодня</p>
+                  <h3>Потреблено и потрачено</h3>
+                </div>
+                <span class="soft-badge mint">Импорт из питания</span>
+              </div>
+              <div class="calorie-dashboard" id="nutritionCalories"></div>
+            </article>
+            <article class="panel">
+              <p class="card-kicker">Как интегрировать</p>
+              <h3>Готовый мост данных</h3>
+              <p class="muted-copy">В большом приложении этот блок может брать данные из твоего текущего приложения питания через API, Supabase sync, CSV-import или ручную запись.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="shopping">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Дом</p>
+              <h2>Список покупок</h2>
+            </div>
+            <button class="secondary-action">+ Покупка</button>
+          </div>
+          <div class="shopping-layout" id="shoppingList"></div>
+        </section>
+
+        <section class="section" id="diary">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Личный дневник</p>
+              <h2>Мысли и фотоальбом</h2>
+            </div>
+            <button class="secondary-action">+ Запись</button>
+          </div>
+          <div class="diary-layout">
+            <article class="panel span-2">
+              <div class="journal-editor">
+                <p class="card-kicker">Новая запись</p>
+                <h3>Что хочется сохранить из сегодняшнего дня?</h3>
+                <textarea placeholder="Можно написать пару строк, а можно оставить длинную запись с размышлениями..."></textarea>
+                <div class="attachment-row">
+                  <button class="ghost-action">+ Фото</button>
+                  <button class="ghost-action">+ Картинка</button>
+                  <button class="primary-action">Сохранить</button>
+                </div>
+              </div>
+            </article>
+            <article class="panel">
+              <div class="photo-stack">
+                <div></div>
+                <div></div>
+                <div></div>
+              </div>
+              <p class="muted-copy">Фото и картинки можно прикреплять к любой записи, чтобы дневник ощущался как личный альбом.</p>
+            </article>
+          </div>
+          <div class="diary-feed" id="diaryFeed"></div>
+        </section>
+
+        <section class="section" id="birthdays">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Люди рядом</p>
+              <h2>Дни рождения</h2>
+            </div>
+            <button class="secondary-action">+ Контакт</button>
+          </div>
+          <div class="card-grid" id="birthdayCards"></div>
+        </section>
+      </main>
+
+      <nav class="mobile-nav" aria-label="Мобильная навигация">
+        <button class="is-active" data-section="dashboard">⌂<span>Сегодня</span></button>
+        <button data-section="tasks">✓<span>Задачи</span></button>
+        <button data-section="health">♡<span>Состояние</span></button>
+        <button data-section="diary">✎<span>Дневник</span></button>
+        <button data-section="shopping">□<span>Покупки</span></button>
+      </nav>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
