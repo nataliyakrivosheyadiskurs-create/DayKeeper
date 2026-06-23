@@ -1211,3 +1211,833 @@ renderDashboardMisc();
    заменятся реальными данными, форма "+ Приём пищи" будет писать
    напрямую в Supabase вместо DB.calorieLog.
    ========================================================= */
+
+/* =========================================================
+   МОДУЛЬ ПИТАНИЯ (NutriPlan inside DayKeeper)
+   ========================================================= */
+
+/* ---------- Встроенная база продуктов ---------- */
+const BUILTIN_PRODUCTS = [
+  { id:"bp1",  name:"Куриная грудка",    kcal:113, protein:23.6, carbs:0.4,  fat:1.9,  builtin:true },
+  { id:"bp2",  name:"Яйцо куриное",      kcal:157, protein:12.7, carbs:0.7,  fat:11.5, builtin:true },
+  { id:"bp3",  name:"Творог 5%",         kcal:121, protein:17,   carbs:3,    fat:5,    builtin:true },
+  { id:"bp4",  name:"Греческий йогурт",  kcal:66,  protein:6,    carbs:4,    fat:3.8,  builtin:true },
+  { id:"bp5",  name:"Овсяные хлопья",    kcal:342, protein:12,   carbs:60,   fat:6,    builtin:true },
+  { id:"bp6",  name:"Гречка варёная",    kcal:110, protein:4.2,  carbs:21.3, fat:1.1,  builtin:true },
+  { id:"bp7",  name:"Рис варёный",       kcal:130, protein:2.7,  carbs:28.2, fat:0.3,  builtin:true },
+  { id:"bp8",  name:"Макароны варёные",  kcal:158, protein:5.5,  carbs:30.9, fat:0.9,  builtin:true },
+  { id:"bp9",  name:"Банан",             kcal:89,  protein:1.1,  carbs:22.8, fat:0.3,  builtin:true },
+  { id:"bp10", name:"Яблоко",            kcal:52,  protein:0.3,  carbs:13.8, fat:0.2,  builtin:true },
+  { id:"bp11", name:"Авокадо",           kcal:160, protein:2,    carbs:9,    fat:14.7, builtin:true },
+  { id:"bp12", name:"Лосось",            kcal:208, protein:20,   carbs:0,    fat:13,   builtin:true },
+  { id:"bp13", name:"Тунец в с/с",       kcal:96,  protein:21.5, carbs:0,    fat:0.8,  builtin:true },
+  { id:"bp14", name:"Молоко 2.5%",       kcal:52,  protein:2.8,  carbs:4.7,  fat:2.5,  builtin:true },
+  { id:"bp15", name:"Сыр твёрдый",       kcal:350, protein:25,   carbs:0,    fat:27,   builtin:true },
+  { id:"bp16", name:"Орехи грецкие",     kcal:654, protein:15.2, carbs:13.7, fat:65.2, builtin:true },
+  { id:"bp17", name:"Миндаль",           kcal:575, protein:21.2, carbs:21.7, fat:49.9, builtin:true },
+  { id:"bp18", name:"Оливковое масло",   kcal:884, protein:0,    carbs:0,    fat:100,  builtin:true },
+  { id:"bp19", name:"Чёрный хлеб",       kcal:213, protein:7,    carbs:41,   fat:1.1,  builtin:true },
+  { id:"bp20", name:"Картофель варёный", kcal:86,  protein:2,    carbs:18.6, fat:0.1,  builtin:true },
+  { id:"bp21", name:"Огурец",            kcal:15,  protein:0.7,  carbs:3.1,  fat:0.1,  builtin:true },
+  { id:"bp22", name:"Помидор",           kcal:18,  protein:0.9,  carbs:3.7,  fat:0.2,  builtin:true },
+  { id:"bp23", name:"Морковь",           kcal:41,  protein:0.9,  carbs:9.6,  fat:0.2,  builtin:true },
+  { id:"bp24", name:"Брокколи",          kcal:34,  protein:2.8,  carbs:6.6,  fat:0.4,  builtin:true },
+  { id:"bp25", name:"Клубника",          kcal:33,  protein:0.7,  carbs:7.7,  fat:0.3,  builtin:true },
+  { id:"bp26", name:"Черника",           kcal:57,  protein:0.7,  carbs:14.5, fat:0.3,  builtin:true },
+  { id:"bp27", name:"Мёд",               kcal:304, protein:0.3,  carbs:82.4, fat:0,    builtin:true },
+  { id:"bp28", name:"Протеин (порошок)", kcal:380, protein:75,   carbs:7,    fat:5,    builtin:true },
+  { id:"bp29", name:"Финики",            kcal:277, protein:1.8,  carbs:74.9, fat:0.2,  builtin:true },
+  { id:"bp30", name:"Шоколад тёмный",    kcal:539, protein:4.9,  carbs:60,   fat:30,   builtin:true },
+];
+
+/* ---------- Структура данных питания в DB ---------- */
+// DB.nutrition = {
+//   goal: { kcal:1500, protein:120, carbs:150, fat:50 },
+//   apiKey: "",
+//   preferences: "",  // для ассистента
+//   diary: { dateISO: { meals:[{mealType,name,grams,kcal,protein,carbs,fat,dishId?,productId?}], activity:[{name,kcal}] } }
+//   dishes: [{id, name, emoji, totalGrams, portionGrams, ingredients:[{productId,name,grams}]}]
+//   products: [{id, name, kcal, protein, carbs, fat, builtin:false}]  // только свои
+// }
+
+function getNutrDB() {
+  if (!DB.nutrition) {
+    DB.nutrition = {
+      goal: { kcal: 1500, protein: 105, carbs: 160, fat: 55 },
+      apiKey: "",
+      preferences: "",
+      diary: {},
+      dishes: [],
+      products: [],
+    };
+    saveDB();
+  }
+  return DB.nutrition;
+}
+
+function getTodayNutr() {
+  const n = getNutrDB();
+  if (!n.diary[todayISO()]) n.diary[todayISO()] = { meals: [], activity: [] };
+  return n.diary[todayISO()];
+}
+
+function calcDayTotals(dayData) {
+  const totals = { kcal:0, protein:0, carbs:0, fat:0, burned:0 };
+  (dayData.meals || []).forEach(m => {
+    totals.kcal    += m.kcal    || 0;
+    totals.protein += m.protein || 0;
+    totals.carbs   += m.carbs   || 0;
+    totals.fat     += m.fat     || 0;
+  });
+  (dayData.activity || []).forEach(a => { totals.burned += a.kcal || 0; });
+  return totals;
+}
+
+function allProducts() {
+  return [...BUILTIN_PRODUCTS, ...(getNutrDB().products || [])];
+}
+
+function findProduct(id) {
+  return allProducts().find(p => p.id === id);
+}
+
+/* ---------- Вкладки питания ---------- */
+let nutrActiveTab = "diary";
+let nutrProductFilter = "all";
+let nutrDynRange = "week";
+
+document.querySelectorAll(".nutr-tab[data-nutr-tab]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    nutrActiveTab = btn.dataset.nutrTab;
+    document.querySelectorAll(".nutr-tab[data-nutr-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
+    document.querySelectorAll(".nutr-pane[id^='nutrPane-']").forEach(p => p.style.display = "none");
+    const pane = document.getElementById("nutrPane-" + nutrActiveTab);
+    if (pane) pane.style.display = "grid";
+    renderNutrTab(nutrActiveTab);
+  });
+});
+
+function renderNutrTab(tab) {
+  if (tab === "diary")    { renderNutrDiary(); }
+  if (tab === "dishes")   { renderNutrDishes(); }
+  if (tab === "products") { renderNutrProducts(); }
+  if (tab === "dynamics") { renderNutrDynamics(); }
+}
+
+/* ---------- Дневник питания ---------- */
+const MEAL_TYPES = ["Завтрак","Второй завтрак","Обед","Перекус","Ужин","Поздний перекус"];
+
+function renderNutrDiary() {
+  const n = getNutrDB();
+  const day = getTodayNutr();
+  const totals = calcDayTotals(day);
+  const goal = n.goal;
+  const pct = Math.min(100, Math.round((totals.kcal / goal.kcal) * 100));
+  const deficit = goal.kcal - totals.kcal + totals.burned;
+
+  document.getElementById("nutrDaySummary").innerHTML = `
+    <div class="panel-head">
+      <div><p class="card-kicker">Сегодня</p><h3>🎯 ${goal.kcal} ккал цель</h3></div>
+      <span class="soft-badge ${pct >= 100 ? 'rose' : 'mint'}">${pct}% от нормы</span>
+    </div>
+    <div class="nutr-day-summary" style="margin-top:16px">
+      <div class="nutr-macro-card">
+        <div class="val">${totals.kcal}</div>
+        <div class="lbl">Съедено</div>
+        <div class="sub">из ${goal.kcal} ккал</div>
+      </div>
+      <div class="nutr-macro-card">
+        <div class="val" style="color:var(--mint-deep)">${totals.burned}</div>
+        <div class="lbl">Сожжено</div>
+        <div class="sub">активность</div>
+      </div>
+      <div class="nutr-macro-card">
+        <div class="val" style="color:${deficit>=0?'var(--mint-deep)':'var(--rose)'}">${Math.abs(deficit)}</div>
+        <div class="lbl">${deficit >= 0 ? 'Дефицит' : 'Профицит'}</div>
+        <div class="sub">ккал</div>
+      </div>
+      <div class="nutr-macro-card">
+        <div class="val" style="font-size:14px">${Math.round(totals.protein)}б / ${Math.round(totals.carbs)}у / ${Math.round(totals.fat)}ж</div>
+        <div class="lbl">БУЖ (г)</div>
+        <div class="sub">из ${goal.protein}/${goal.carbs}/${goal.fat}</div>
+      </div>
+    </div>
+    <div class="nutr-progress-bar"><span style="width:${pct}%"></span></div>
+  `;
+
+  // Группируем по типу приёма
+  const byType = {};
+  (day.meals || []).forEach((m, idx) => {
+    const t = m.mealType || "Прочее";
+    if (!byType[t]) byType[t] = [];
+    byType[t].push({ ...m, _idx: idx });
+  });
+  document.getElementById("nutrMealsList").innerHTML = Object.entries(byType).map(([type, items]) => `
+    <div class="nutr-meal-group">
+      <div class="nutr-meal-group-title">${type}</div>
+      ${items.map(m => `
+        <div class="nutr-meal-item" data-meal-idx="${m._idx}">
+          <div style="flex:1">
+            <div class="name">${esc(m.name)}</div>
+            <div class="macro-row">${m.grams}г · Б${Math.round(m.protein)}г У${Math.round(m.carbs)}г Ж${Math.round(m.fat)}г</div>
+          </div>
+          <div class="kcal">${Math.round(m.kcal)} ккал</div>
+          <button class="icon-action del-btn nutr-meal-del">✕</button>
+        </div>
+      `).join("")}
+    </div>
+  `).join("") || `<p class="muted-copy" style="padding:12px 0">Приёмов пищи пока нет. Нажми «+ Добавить».</p>`;
+
+  // Активность
+  document.getElementById("nutrActivityList").innerHTML = (day.activity || []).length
+    ? day.activity.map((a, idx) => `
+      <div class="nutr-activity-item" data-act-idx="${idx}">
+        <span class="name">🏃 ${esc(a.name)}</span>
+        <span class="kcal">−${a.kcal} ккал</span>
+        <button class="icon-action nutr-act-del" style="width:26px;height:26px;font-size:12px">✕</button>
+      </div>
+    `).join("")
+    : `<p class="muted-copy" style="padding:8px 0">Активности нет</p>`;
+
+  // Калории на дашборде
+  document.querySelector("#calorieMini").innerHTML = `
+    <div class="metric">${totals.kcal}</div>
+    <p class="muted-copy">потреблено · ${totals.burned} сожжено</p>
+    <div class="progress"><span style="width:${pct}%"></span></div>
+  `;
+
+  bindNutrDiaryEvents();
+  checkNutrApiKey();
+}
+
+function bindNutrDiaryEvents() {
+  document.querySelectorAll(".nutr-meal-del").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.closest("[data-meal-idx]").dataset.mealIdx);
+      getTodayNutr().meals.splice(idx, 1);
+      saveDB(); renderNutrDiary();
+    });
+  });
+  document.querySelectorAll(".nutr-act-del").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.closest("[data-act-idx]").dataset.actIdx);
+      getTodayNutr().activity.splice(idx, 1);
+      saveDB(); renderNutrDiary();
+    });
+  });
+}
+
+/* ---------- Кнопка "+ Добавить" ---------- */
+document.getElementById("nutrAddMealBtn").addEventListener("click", openNutrAddMealModal);
+
+function openNutrAddMealModal(prefillProduct) {
+  const products = allProducts();
+  const dishes = getNutrDB().dishes;
+  let selectedType = "Завтрак";
+  let selectedItem = prefillProduct || null; // {type:'product'|'dish', data:...}
+  let searchQ = "";
+
+  const itemListHTML = () => {
+    const q = searchQ.toLowerCase();
+    const matchedProducts = products.filter(p => p.name.toLowerCase().includes(q)).slice(0, 20);
+    const matchedDishes = dishes.filter(d => d.name.toLowerCase().includes(q)).slice(0, 10);
+    return [
+      ...matchedDishes.map(d => {
+        const kcalPer = calcDishKcalPer100(d);
+        return `<div class="nutr-product-row" data-item-type="dish" data-item-id="${d.id}" style="cursor:pointer">
+          <div style="flex:1"><div class="pname">${d.emoji || "🍽"} ${esc(d.name)}</div><div class="pmacros">блюдо · порция ${d.portionGrams}г</div></div>
+          <div class="pkcal">${Math.round(kcalPer*d.portionGrams/100)} ккал</div>
+        </div>`;
+      }),
+      ...matchedProducts.map(p => `
+        <div class="nutr-product-row" data-item-type="product" data-item-id="${p.id}" style="cursor:pointer">
+          <div style="flex:1"><div class="pname">${esc(p.name)}</div><div class="pmacros">на 100г: Б${p.protein}г У${p.carbs}г Ж${p.fat}г</div></div>
+          <div class="pkcal">${p.kcal} ккал</div>
+        </div>
+      `),
+    ].join("") || `<p class="muted-copy">Ничего не найдено</p>`;
+  };
+
+  const selectedHTML = () => selectedItem ? `
+    <div style="padding:10px 14px;border-radius:14px;background:rgba(185,222,199,.2);border:1px solid rgba(185,222,199,.5);margin-bottom:10px">
+      <strong>${selectedItem.data.emoji || ""} ${esc(selectedItem.data.name)}</strong>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">${selectedItem.type === "dish" ? `Порция: ${selectedItem.data.portionGrams}г` : "продукт · укажи граммовку ниже"}</div>
+    </div>
+  ` : "";
+
+  openModal(`
+    <h3>Добавить в дневник</h3>
+    <div class="gd-field"><label>Приём пищи</label>
+      <div class="gd-pills" id="mealTypePills">${MEAL_TYPES.map(t => `<div class="gd-pill ${t===selectedType?"sel":""}" data-mtype="${t}">${t}</div>`).join("")}</div>
+    </div>
+    <div id="selectedItemWrap">${selectedHTML()}</div>
+    <div class="gd-field">
+      <label>Поиск продукта или блюда</label>
+      <input type="text" id="nutrItemSearch" placeholder="Курица, овсянка, мой салат..."/>
+    </div>
+    <div id="nutrItemList" style="max-height:200px;overflow-y:auto;display:grid;gap:6px;margin-bottom:12px">${itemListHTML()}</div>
+    <div class="gd-row2" id="gramsRow" style="${selectedItem && selectedItem.type==='dish' ? 'display:none' : ''}">
+      <div class="gd-field"><label>Граммовка</label><input type="number" id="nutrGrams" value="100" min="1"/></div>
+      <div class="gd-field"><label>Ккал (авто или вручную)</label><input type="number" id="nutrKcalManual" placeholder="авто"/></div>
+    </div>
+    <div class="gd-actions">
+      <button class="secondary-action" id="nutrMealCancel">Отмена</button>
+      <button class="primary-action" id="nutrMealSave">Добавить</button>
+    </div>
+  `, (root) => {
+    root.querySelectorAll("#mealTypePills .gd-pill").forEach(p => p.addEventListener("click", () => {
+      selectedType = p.dataset.mtype;
+      root.querySelectorAll("#mealTypePills .gd-pill").forEach(x => x.classList.toggle("sel", x === p));
+    }));
+
+    const searchInput = root.querySelector("#nutrItemSearch");
+    searchInput.addEventListener("input", () => {
+      searchQ = searchInput.value;
+      root.querySelector("#nutrItemList").innerHTML = itemListHTML();
+      bindItemClick();
+    });
+
+    function bindItemClick() {
+      root.querySelectorAll("#nutrItemList [data-item-id]").forEach(row => {
+        row.addEventListener("click", () => {
+          const type = row.dataset.itemType;
+          const id = row.dataset.itemId;
+          selectedItem = type === "dish"
+            ? { type, data: dishes.find(d => d.id === id) }
+            : { type, data: products.find(p => p.id === id) };
+          root.querySelector("#selectedItemWrap").innerHTML = selectedHTML();
+          root.querySelector("#gramsRow").style.display = type === "dish" ? "none" : "";
+          if (type === "product") {
+            const grams = root.querySelector("#nutrGrams");
+            if (grams) grams.focus();
+          }
+        });
+      });
+    }
+    bindItemClick();
+
+    root.querySelector("#nutrMealCancel").addEventListener("click", closeModal);
+    root.querySelector("#nutrMealSave").addEventListener("click", () => {
+      if (!selectedItem) { searchInput.focus(); return; }
+      const day = getTodayNutr();
+      let entry;
+      if (selectedItem.type === "dish") {
+        const d = selectedItem.data;
+        const portion = d.portionGrams;
+        const per100 = calcDishKcalPer100(d);
+        entry = {
+          mealType: selectedType,
+          name: d.name,
+          grams: portion,
+          kcal: Math.round(per100 * portion / 100),
+          protein: Math.round(calcDishMacro(d, "protein") * portion / 100 * 10) / 10,
+          carbs:   Math.round(calcDishMacro(d, "carbs")   * portion / 100 * 10) / 10,
+          fat:     Math.round(calcDishMacro(d, "fat")     * portion / 100 * 10) / 10,
+          dishId: d.id,
+        };
+      } else {
+        const p = selectedItem.data;
+        const grams = Number(root.querySelector("#nutrGrams").value) || 100;
+        const manualKcal = root.querySelector("#nutrKcalManual").value;
+        const kcal = manualKcal ? Number(manualKcal) : Math.round(p.kcal * grams / 100);
+        entry = {
+          mealType: selectedType,
+          name: p.name,
+          grams,
+          kcal,
+          protein: Math.round(p.protein * grams / 100 * 10) / 10,
+          carbs:   Math.round(p.carbs   * grams / 100 * 10) / 10,
+          fat:     Math.round(p.fat     * grams / 100 * 10) / 10,
+          productId: p.id,
+        };
+      }
+      day.meals.push(entry);
+      saveDB(); renderNutrDiary(); closeModal();
+    });
+  });
+}
+
+/* ---------- Активность ---------- */
+document.getElementById("nutrAddActivityBtn").addEventListener("click", openNutrActivityModal);
+function openNutrActivityModal() {
+  openModal(`
+    <h3>Добавить активность</h3>
+    <div class="gd-field"><label>Название</label><input type="text" id="act-name" placeholder="Бег, йога, прогулка..."/></div>
+    <div class="gd-field"><label>Сожжено ккал</label><input type="number" id="act-kcal" placeholder="200"/></div>
+    <div class="gd-actions">
+      <button class="secondary-action" id="act-cancel">Отмена</button>
+      <button class="primary-action" id="act-save">Добавить</button>
+    </div>
+  `, (root) => {
+    root.querySelector("#act-cancel").addEventListener("click", closeModal);
+    root.querySelector("#act-save").addEventListener("click", () => {
+      const name = root.querySelector("#act-name").value.trim() || "Активность";
+      const kcal = Number(root.querySelector("#act-kcal").value) || 0;
+      getTodayNutr().activity.push({ name, kcal });
+      saveDB(); renderNutrDiary(); closeModal();
+    });
+    root.querySelector("#act-name").focus();
+  });
+}
+
+/* ---------- Настройки / Цель ---------- */
+document.getElementById("nutrSettingsBtn").addEventListener("click", openNutrSettingsModal);
+function openNutrSettingsModal() {
+  const g = getNutrDB().goal;
+  openModal(`
+    <h3>Цель по питанию</h3>
+    <div class="gd-row2">
+      <div class="gd-field"><label>Калории (ккал/день)</label><input type="number" id="gs-kcal" value="${g.kcal}"/></div>
+      <div class="gd-field"><label>Белок (г)</label><input type="number" id="gs-protein" value="${g.protein}"/></div>
+    </div>
+    <div class="gd-row2">
+      <div class="gd-field"><label>Углеводы (г)</label><input type="number" id="gs-carbs" value="${g.carbs}"/></div>
+      <div class="gd-field"><label>Жиры (г)</label><input type="number" id="gs-fat" value="${g.fat}"/></div>
+    </div>
+    <div class="gd-field"><label>Предпочтения / ограничения (для ассистента)</label>
+      <textarea id="gs-prefs" style="min-height:70px" placeholder="Например: без молочки, без яиц, вегетарианство...">${esc(getNutrDB().preferences||"")}</textarea>
+    </div>
+    <div class="gd-actions">
+      <button class="secondary-action" id="gs-cancel">Отмена</button>
+      <button class="primary-action" id="gs-save">Сохранить</button>
+    </div>
+  `, (root) => {
+    root.querySelector("#gs-cancel").addEventListener("click", closeModal);
+    root.querySelector("#gs-save").addEventListener("click", () => {
+      const n = getNutrDB();
+      n.goal = {
+        kcal:    Number(root.querySelector("#gs-kcal").value)    || 1500,
+        protein: Number(root.querySelector("#gs-protein").value) || 105,
+        carbs:   Number(root.querySelector("#gs-carbs").value)   || 160,
+        fat:     Number(root.querySelector("#gs-fat").value)     || 55,
+      };
+      n.preferences = root.querySelector("#gs-prefs").value.trim();
+      saveDB(); renderNutrDiary(); closeModal();
+    });
+  });
+}
+
+/* ---------- Кнопка "Мне плохо" ---------- */
+document.getElementById("nutrHelpBtn").addEventListener("click", () => {
+  openModal(`
+    <h3>🍫 Плохо? Вот что поможет</h3>
+    <p class="muted-copy" style="margin-bottom:16px">Похоже на гипогликемию или просто нужна быстрая энергия. Что есть рядом?</p>
+    <div style="display:grid;gap:8px" id="helpItems">
+      ${[
+        {e:"🍫", name:"Кусочек тёмного шоколада", kcal:80, hint:"Быстрый подъём настроения"},
+        {e:"🌴", name:"5 фиников", kcal:100, hint:"Плавный подъём сахара"},
+        {e:"🍌", name:"Банан", kcal:90, hint:"Калий + быстрые углеводы"},
+        {e:"🟠", name:"Курага 5 шт.", kcal:60, hint:"Мягко и быстро"},
+        {e:"🍯", name:"Ложка мёда", kcal:60, hint:"Самый быстрый источник глюкозы"},
+      ].map(item => `
+        <div class="nutr-meal-item" style="cursor:pointer" data-help-name="${esc(item.name)}" data-help-kcal="${item.kcal}">
+          <div style="font-size:22px">${item.e}</div>
+          <div style="flex:1"><div class="name">${item.name}</div><div class="macro-row">${item.hint}</div></div>
+          <div class="kcal">~${item.kcal} ккал</div>
+        </div>
+      `).join("")}
+    </div>
+    <div class="gd-actions" style="margin-top:16px">
+      <button class="secondary-action" id="help-cancel">Закрыть</button>
+    </div>
+  `, (root) => {
+    root.querySelector("#help-cancel").addEventListener("click", closeModal);
+    root.querySelectorAll("[data-help-name]").forEach(row => {
+      row.addEventListener("click", () => {
+        const name = row.dataset.helpName;
+        const kcal = Number(row.dataset.helpKcal);
+        getTodayNutr().meals.push({ mealType:"Перекус", name, grams:0, kcal, protein:0, carbs:kcal*0.8/4, fat:kcal*0.2/9 });
+        saveDB(); renderNutrDiary(); closeModal();
+      });
+    });
+  });
+});
+
+/* ---------- Блюда ---------- */
+function calcDishKcalPer100(dish) {
+  let total = 0, totalGrams = 0;
+  (dish.ingredients || []).forEach(ing => {
+    const p = findProduct(ing.productId);
+    if (p) { total += p.kcal * ing.grams / 100; totalGrams += ing.grams; }
+    else { total += (ing.kcalManual || 0) * ing.grams / 100; totalGrams += ing.grams; }
+  });
+  if (!totalGrams || !dish.totalGrams) return 0;
+  const factor = dish.totalGrams / totalGrams;
+  return Math.round((total / dish.totalGrams) * 100 * factor);
+}
+function calcDishMacro(dish, macro) {
+  let total = 0, totalGrams = 0;
+  (dish.ingredients || []).forEach(ing => {
+    const p = findProduct(ing.productId);
+    if (p) { total += p[macro] * ing.grams / 100; totalGrams += ing.grams; }
+  });
+  if (!totalGrams || !dish.totalGrams) return 0;
+  const factor = dish.totalGrams / totalGrams;
+  return (total / dish.totalGrams) * 100 * factor;
+}
+
+function renderNutrDishes() {
+  const dishes = getNutrDB().dishes;
+  document.getElementById("nutrDishesList").innerHTML = dishes.length
+    ? dishes.map(d => {
+        const kcalPer = calcDishKcalPer100(d);
+        const kcalPortion = Math.round(kcalPer * d.portionGrams / 100);
+        return `
+        <article class="nutr-dish-card" data-dish-id="${d.id}">
+          <div class="emoji">${d.emoji || "🍽"}</div>
+          <h4>${esc(d.name)}</h4>
+          <div class="macros">Порция ${d.portionGrams}г · ${kcalPortion} ккал · ${d.ingredients.length} ингр.</div>
+          <div class="dish-actions">
+            <button class="ghost-action dish-add-btn" style="font-size:12px;padding:8px 12px">+ В дневник</button>
+            <button class="ghost-action dish-del-btn" style="font-size:12px;padding:8px 12px">Удалить</button>
+          </div>
+        </article>`;
+      }).join("")
+    : `<p class="muted-copy" style="padding:20px 0">Блюд пока нет. Создай первое!</p>`;
+
+  document.querySelectorAll(".dish-add-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.closest("[data-dish-id]").dataset.dishId;
+      const dish = getNutrDB().dishes.find(d => d.id === id);
+      setSection("nutrition");
+      document.querySelector("[data-nutr-tab='diary']").click();
+      openNutrAddMealModal({ type: "dish", data: dish });
+    });
+  });
+  document.querySelectorAll(".dish-del-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.closest("[data-dish-id]").dataset.dishId;
+      if (!confirm("Удалить блюдо?")) return;
+      getNutrDB().dishes = getNutrDB().dishes.filter(d => d.id !== id);
+      saveDB(); renderNutrDishes();
+    });
+  });
+}
+
+document.getElementById("nutrAddDishBtn").addEventListener("click", openNutrAddDishModal);
+function openNutrAddDishModal() {
+  const products = allProducts();
+  let ingredients = []; // [{productId, name, grams}]
+  let searchQ = "";
+
+  const ingListHTML = () => ingredients.map((ing, i) => `
+    <div class="nutr-meal-item" data-ing-idx="${i}">
+      <div style="flex:1"><div class="name">${esc(ing.name)}</div></div>
+      <input type="number" value="${ing.grams}" min="1" class="ing-grams" data-ing-idx="${i}" style="width:70px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:13px;text-align:center"/>
+      <div style="font-size:12px;color:var(--muted);min-width:40px;text-align:right">${Math.round(findProduct(ing.productId)?.kcal * ing.grams / 100 || 0)} кк</div>
+      <button class="icon-action ing-del" style="width:26px;height:26px;font-size:12px">✕</button>
+    </div>
+  `).join("") || `<p class="muted-copy">Добавь ингредиенты поиском ниже</p>`;
+
+  const prodSearchHTML = () => {
+    const q = searchQ.toLowerCase();
+    return products.filter(p => p.name.toLowerCase().includes(q)).slice(0, 10).map(p => `
+      <div class="nutr-product-row" data-pid="${p.id}" style="cursor:pointer">
+        <div style="flex:1"><div class="pname">${esc(p.name)}</div></div>
+        <div class="pkcal">${p.kcal} ккал</div>
+      </div>
+    `).join("") || `<p class="muted-copy">Не найдено</p>`;
+  };
+
+  openModal(`
+    <h3>Новое блюдо</h3>
+    <div class="gd-row2">
+      <div class="gd-field"><label>Название</label><input type="text" id="dish-name" placeholder="Мой салат"/></div>
+      <div class="gd-field"><label>Эмодзи</label><input type="text" id="dish-emoji" value="🍽" maxlength="2" style="font-size:22px;text-align:center"/></div>
+    </div>
+    <div class="gd-row2">
+      <div class="gd-field"><label>Выход блюда (г)</label><input type="number" id="dish-total" placeholder="400"/></div>
+      <div class="gd-field"><label>Размер порции (г)</label><input type="number" id="dish-portion" placeholder="200"/></div>
+    </div>
+    <div class="gd-field"><label>Ингредиенты</label>
+      <div id="dish-ing-list" style="display:grid;gap:6px;margin-bottom:8px">${ingListHTML()}</div>
+      <input type="text" id="dish-ing-search" placeholder="Найти продукт..."/>
+      <div id="dish-prod-list" style="max-height:160px;overflow-y:auto;display:grid;gap:4px;margin-top:6px">${prodSearchHTML()}</div>
+    </div>
+    <div class="gd-actions">
+      <button class="secondary-action" id="dish-cancel">Отмена</button>
+      <button class="primary-action" id="dish-save">Сохранить блюдо</button>
+    </div>
+  `, (root) => {
+    function refresh() {
+      root.querySelector("#dish-ing-list").innerHTML = ingListHTML();
+      bindIngEvents();
+    }
+    function bindIngEvents() {
+      root.querySelectorAll(".ing-del").forEach(b => b.addEventListener("click", () => {
+        ingredients.splice(Number(b.dataset.ingIdx), 1); refresh();
+      }));
+      root.querySelectorAll(".ing-grams").forEach(inp => inp.addEventListener("change", () => {
+        ingredients[Number(inp.dataset.ingIdx)].grams = Number(inp.value) || 100; refresh();
+      }));
+    }
+    function refreshProdList() {
+      root.querySelector("#dish-prod-list").innerHTML = prodSearchHTML();
+      root.querySelectorAll("[data-pid]").forEach(row => row.addEventListener("click", () => {
+        const p = products.find(x => x.id === row.dataset.pid);
+        if (p) { ingredients.push({ productId: p.id, name: p.name, grams: 100 }); refresh(); }
+      }));
+    }
+    root.querySelector("#dish-ing-search").addEventListener("input", e => { searchQ = e.target.value; refreshProdList(); });
+    refreshProdList();
+    root.querySelector("#dish-cancel").addEventListener("click", closeModal);
+    root.querySelector("#dish-save").addEventListener("click", () => {
+      const name = root.querySelector("#dish-name").value.trim();
+      if (!name) { root.querySelector("#dish-name").focus(); return; }
+      if (!ingredients.length) { alert("Добавь хотя бы один ингредиент"); return; }
+      getNutrDB().dishes.push({
+        id: uid(), name,
+        emoji: root.querySelector("#dish-emoji").value || "🍽",
+        totalGrams: Number(root.querySelector("#dish-total").value) || 400,
+        portionGrams: Number(root.querySelector("#dish-portion").value) || 200,
+        ingredients: [...ingredients],
+      });
+      saveDB(); renderNutrDishes(); closeModal();
+    });
+    bindIngEvents();
+    root.querySelector("#dish-name").focus();
+  });
+}
+
+/* ---------- Продукты ---------- */
+let nutrProductSearchQ = "";
+document.addEventListener("input", e => {
+  if (e.target.id === "nutrProductSearch") {
+    nutrProductSearchQ = e.target.value.toLowerCase();
+    renderNutrProducts();
+  }
+});
+document.querySelectorAll("#nutrProductFilter [data-pf]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    nutrProductFilter = btn.dataset.pf;
+    document.querySelectorAll("#nutrProductFilter [data-pf]").forEach(b => b.classList.toggle("is-active", b === btn));
+    renderNutrProducts();
+  });
+});
+
+function renderNutrProducts() {
+  let list = allProducts();
+  if (nutrProductFilter === "my") list = list.filter(p => !p.builtin);
+  if (nutrProductFilter === "builtin") list = list.filter(p => p.builtin);
+  if (nutrProductSearchQ) list = list.filter(p => p.name.toLowerCase().includes(nutrProductSearchQ));
+
+  document.getElementById("nutrProductsList").innerHTML = list.map(p => `
+    <div class="nutr-product-row" data-prod-id="${p.id}">
+      <div style="flex:1">
+        <div class="pname">${esc(p.name)} ${p.builtin ? "" : "<span style='font-size:10px;color:var(--muted)'>(мой)</span>"}</div>
+        <div class="pmacros">Б${p.protein}г · У${p.carbs}г · Ж${p.fat}г на 100г</div>
+      </div>
+      <div class="pkcal">${p.kcal} ккал</div>
+      <button class="ghost-action add-btn" data-prod-id="${p.id}" style="font-size:12px;padding:8px 12px">+ В дневник</button>
+      ${!p.builtin ? `<button class="icon-action prod-del-btn" style="width:28px;height:28px;font-size:12px">✕</button>` : ""}
+    </div>
+  `).join("") || `<p class="muted-copy" style="padding:16px 0">Ничего не найдено</p>`;
+
+  document.querySelectorAll(".add-btn[data-prod-id]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const p = allProducts().find(x => x.id === btn.dataset.prodId);
+      setSection("nutrition");
+      document.querySelector("[data-nutr-tab='diary']").click();
+      openNutrAddMealModal({ type: "product", data: p });
+    });
+  });
+  document.querySelectorAll(".prod-del-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.closest("[data-prod-id]").dataset.prodId;
+      getNutrDB().products = getNutrDB().products.filter(p => p.id !== id);
+      saveDB(); renderNutrProducts();
+    });
+  });
+}
+
+document.getElementById("nutrAddProductBtn").addEventListener("click", openNutrAddProductModal);
+function openNutrAddProductModal() {
+  openModal(`
+    <h3>Новый продукт</h3>
+    <div class="gd-field"><label>Название</label><input type="text" id="prod-name" placeholder="Название продукта"/></div>
+    <div class="gd-row2">
+      <div class="gd-field"><label>Калории (на 100г)</label><input type="number" id="prod-kcal" placeholder="200"/></div>
+      <div class="gd-field"><label>Белки (г)</label><input type="number" step="0.1" id="prod-protein" placeholder="10"/></div>
+    </div>
+    <div class="gd-row2">
+      <div class="gd-field"><label>Углеводы (г)</label><input type="number" step="0.1" id="prod-carbs" placeholder="20"/></div>
+      <div class="gd-field"><label>Жиры (г)</label><input type="number" step="0.1" id="prod-fat" placeholder="5"/></div>
+    </div>
+    <div class="gd-actions">
+      <button class="secondary-action" id="prod-cancel">Отмена</button>
+      <button class="primary-action" id="prod-save">Сохранить</button>
+    </div>
+  `, (root) => {
+    root.querySelector("#prod-cancel").addEventListener("click", closeModal);
+    root.querySelector("#prod-save").addEventListener("click", () => {
+      const name = root.querySelector("#prod-name").value.trim();
+      if (!name) { root.querySelector("#prod-name").focus(); return; }
+      getNutrDB().products.push({
+        id: uid(), name, builtin: false,
+        kcal:    Number(root.querySelector("#prod-kcal").value)    || 0,
+        protein: Number(root.querySelector("#prod-protein").value) || 0,
+        carbs:   Number(root.querySelector("#prod-carbs").value)   || 0,
+        fat:     Number(root.querySelector("#prod-fat").value)     || 0,
+      });
+      saveDB(); renderNutrProducts(); closeModal();
+    });
+    root.querySelector("#prod-name").focus();
+  });
+}
+
+/* ---------- Динамика ---------- */
+document.querySelectorAll("[data-dynrange]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    nutrDynRange = btn.dataset.dynrange;
+    document.querySelectorAll("[data-dynrange]").forEach(b => b.classList.toggle("is-active", b === btn));
+    renderNutrDynamics();
+  });
+});
+
+function renderNutrDynamics() {
+  const diary = getNutrDB().diary;
+  const now = new Date(); now.setHours(0,0,0,0);
+  const days = Object.keys(diary).filter(d => {
+    const diff = Math.round((now - new Date(d + "T00:00:00")) / 86400000);
+    if (nutrDynRange === "week")  return diff >= 0 && diff <= 6;
+    if (nutrDynRange === "month") return diff >= 0 && diff <= 29;
+    return diff >= 0;
+  }).sort();
+
+  const maxKcal = 2400;
+  const calorieHTML = days.length ? days.map(d => {
+    const t = calcDayTotals(diary[d]);
+    return `
+      <div class="calorie-day">
+        <span>${RU_DAYS_SHORT[new Date(d+"T00:00:00").getDay()]}</span>
+        <div class="calorie-bars">
+          <i class="eaten" style="height:${Math.min(100,(t.kcal/maxKcal)*100)}%" title="${Math.round(t.kcal)} ккал"></i>
+          <i class="burned" style="height:${Math.min(100,(t.burned/maxKcal)*100)}%" title="${Math.round(t.burned)} сожжено"></i>
+        </div>
+      </div>`;
+  }).join("") : `<p class="muted-copy">Данных за период нет</p>`;
+
+  document.getElementById("nutrDynCaloriesChart").innerHTML = calorieHTML;
+
+  // Среднее КБЖУ
+  if (days.length) {
+    const avg = { kcal:0, protein:0, carbs:0, fat:0 };
+    days.forEach(d => { const t = calcDayTotals(diary[d]); avg.kcal+=t.kcal; avg.protein+=t.protein; avg.carbs+=t.carbs; avg.fat+=t.fat; });
+    const n = days.length;
+    document.getElementById("nutrDynMacros").innerHTML = [
+      { l:"Калории", v: Math.round(avg.kcal/n) + " ккал", c:"var(--rose)" },
+      { l:"Белок",   v: Math.round(avg.protein/n) + " г",  c:"var(--mint-deep)" },
+      { l:"Углеводы",v: Math.round(avg.carbs/n) + " г",   c:"var(--apricot)" },
+      { l:"Жиры",    v: Math.round(avg.fat/n) + " г",     c:"var(--lavender)" },
+    ].map(m => `
+      <div class="nutr-dyn-macro">
+        <span class="label">${m.l}</span>
+        <span class="value" style="color:${m.c}">${m.v}</span>
+      </div>
+    `).join("");
+  } else {
+    document.getElementById("nutrDynMacros").innerHTML = `<p class="muted-copy">Нет данных</p>`;
+  }
+
+  document.getElementById("nutrDynStats").innerHTML = `
+    <div class="nutr-macro-card" style="text-align:left;padding:16px">
+      <div class="val">${days.length}</div>
+      <div class="lbl">Дней с записями</div>
+      <div class="sub" style="margin-top:8px">за выбранный период</div>
+    </div>
+  `;
+}
+
+/* ---------- Нутри-ассистент ---------- */
+let nutrChatHistory = [];
+
+function checkNutrApiKey() {
+  const key = getNutrDB().apiKey;
+  const wrap = document.getElementById("nutrApiKeyWrap");
+  if (wrap) wrap.style.display = key ? "none" : "block";
+}
+
+document.getElementById("nutrApiKeySave").addEventListener("click", () => {
+  const key = document.getElementById("nutrApiKeyInput").value.trim();
+  if (!key.startsWith("sk-ant-")) { alert("Ключ должен начинаться с sk-ant-"); return; }
+  getNutrDB().apiKey = key;
+  saveDB();
+  document.getElementById("nutrApiKeyWrap").style.display = "none";
+});
+
+document.getElementById("nutrChatSend").addEventListener("click", sendNutrChat);
+document.getElementById("nutrChatInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendNutrChat(); } });
+
+document.querySelectorAll("#nutrQuickPrompts button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.getElementById("nutrChatInput").value = btn.textContent;
+    sendNutrChat();
+  });
+});
+
+async function sendNutrChat() {
+  const input = document.getElementById("nutrChatInput");
+  const text = input.value.trim();
+  if (!text) return;
+
+  const key = getNutrDB().apiKey;
+  if (!key) { document.getElementById("nutrApiKeyWrap").style.display = "block"; return; }
+
+  input.value = "";
+  nutrChatHistory.push({ role: "user", content: text });
+  renderNutrChat();
+
+  const today = getTodayNutr();
+  const totals = calcDayTotals(today);
+  const goal = getNutrDB().goal;
+  const prefs = getNutrDB().preferences;
+
+  const systemPrompt = `Ты нутри-ассистент в приложении DayKeeper. Говоришь дружелюбно, без давления. 
+Сегодня съедено ${Math.round(totals.kcal)} из ${goal.kcal} ккал. БЖУ: Б${Math.round(totals.protein)}г У${Math.round(totals.carbs)}г Ж${Math.round(totals.fat)}г.
+${prefs ? `Предпочтения пользователя: ${prefs}.` : ""}
+Отвечай кратко (3-5 предложений), на русском языке, без лишних списков.`;
+
+  const loadingEl = addNutrMsg("loading", "Думаю...");
+
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 512,
+        system: systemPrompt,
+        messages: nutrChatHistory,
+      }),
+    });
+    const data = await resp.json();
+    loadingEl.remove();
+    if (data.error) { addNutrMsg("assistant", "Ошибка API: " + data.error.message); return; }
+    const reply = data.content?.[0]?.text || "Не получила ответ, попробуй ещё раз.";
+    nutrChatHistory.push({ role: "assistant", content: reply });
+    addNutrMsg("assistant", reply);
+  } catch (e) {
+    loadingEl.remove();
+    addNutrMsg("assistant", "Ошибка соединения. Проверь API-ключ и интернет.");
+  }
+}
+
+function addNutrMsg(role, text) {
+  const chat = document.getElementById("nutrChat");
+  const el = document.createElement("div");
+  el.className = `nutr-msg ${role}`;
+  el.textContent = text;
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+  return el;
+}
+
+function renderNutrChat() {
+  const chat = document.getElementById("nutrChat");
+  chat.innerHTML = "";
+  nutrChatHistory.forEach(m => addNutrMsg(m.role, m.content));
+}
+
+/* ---------- Первичная инициализация питания ---------- */
+getNutrDB(); // создать структуру если нет
+renderNutrDiary();
