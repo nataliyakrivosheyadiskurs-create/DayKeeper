@@ -245,27 +245,120 @@
         <section class="section" id="nutrition">
           <div class="section-head">
             <div>
-              <p class="eyebrow">Интеграция</p>
-              <h2>Питание и калории</h2>
+              <p class="eyebrow">Питание</p>
+              <h2>Дневник питания</h2>
             </div>
-            <button class="secondary-action">Подключить приложение</button>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="secondary-action" id="nutrSettingsBtn">⚙ Цель</button>
+              <button class="primary-action" id="nutrAddMealBtn">+ Добавить</button>
+            </div>
           </div>
-          <div class="nutrition-grid">
+
+          <!-- Вкладки питания -->
+          <div class="nutr-tabs" id="nutrTabs">
+            <button class="nutr-tab is-active" data-nutr-tab="diary">📋 Дневник</button>
+            <button class="nutr-tab" data-nutr-tab="dishes">🍳 Блюда</button>
+            <button class="nutr-tab" data-nutr-tab="products">🥦 Продукты</button>
+            <button class="nutr-tab" data-nutr-tab="dynamics">📊 Динамика</button>
+          </div>
+
+          <!-- Дневник -->
+          <div class="nutr-pane" id="nutrPane-diary">
+            <!-- Сводка дня -->
+            <article class="panel span-2" id="nutrDaySummary"></article>
+            <!-- Кнопка помощи -->
+            <div style="margin:4px 0">
+              <button class="nutr-help-btn" id="nutrHelpBtn">🍫 Мне плохо — нужна шоколадка</button>
+            </div>
+            <!-- Приёмы пищи -->
             <article class="panel span-2">
               <div class="panel-head">
-                <div>
-                  <p class="card-kicker">Сегодня</p>
-                  <h3>Потреблено и потрачено</h3>
-                </div>
-                <span class="soft-badge mint">Импорт из питания</span>
+                <div><p class="card-kicker">Сегодня</p><h3>Приёмы пищи</h3></div>
               </div>
-              <div class="calorie-dashboard" id="nutritionCalories"></div>
+              <div id="nutrMealsList"></div>
             </article>
+            <!-- Активность -->
             <article class="panel">
-              <p class="card-kicker">Как интегрировать</p>
-              <h3>Готовый мост данных</h3>
-              <p class="muted-copy">В большом приложении этот блок может брать данные из твоего текущего приложения питания через API, Supabase sync, CSV-import или ручную запись.</p>
+              <div class="panel-head">
+                <div><p class="card-kicker">Движение</p><h3>Активность</h3></div>
+                <button class="secondary-action" id="nutrAddActivityBtn" style="font-size:12px;padding:8px 14px">+ Добавить</button>
+              </div>
+              <div id="nutrActivityList"></div>
             </article>
+            <!-- Нутри-ассистент -->
+            <article class="panel" id="nutrAssistantPanel">
+              <div class="panel-head">
+                <div><p class="card-kicker">ИИ-помощник</p><h3>🌿 Нутри-ассистент</h3></div>
+              </div>
+              <p class="muted-copy" style="margin-bottom:12px">Знает твои предпочтения. Спроси про рацион, замены продуктов или идеи для ужина.</p>
+              <div class="nutr-quick-prompts" id="nutrQuickPrompts">
+                <button>Что на завтрак?</button>
+                <button>Идея для ужина</button>
+                <button>Лёгкий перекус</button>
+                <button>Анализ рациона</button>
+              </div>
+              <div class="nutr-chat" id="nutrChat"></div>
+              <div class="nutr-chat-input">
+                <input type="text" id="nutrChatInput" placeholder="Напиши вопрос..."/>
+                <button id="nutrChatSend">↑</button>
+              </div>
+              <div id="nutrApiKeyWrap" style="margin-top:10px;display:none">
+                <p class="muted-copy" style="font-size:11px;margin-bottom:6px">Для ассистента нужен API-ключ Anthropic (бесплатно на console.anthropic.com)</p>
+                <div style="display:flex;gap:8px">
+                  <input type="password" id="nutrApiKeyInput" placeholder="sk-ant-..." style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:14px;font:inherit;font-size:13px;background:var(--paper)"/>
+                  <button class="primary-action" id="nutrApiKeySave" style="padding:10px 16px;font-size:13px">Сохранить</button>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <!-- Блюда -->
+          <div class="nutr-pane" id="nutrPane-dishes" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <h3 style="font-family:'Playfair Display',serif">Мои блюда</h3>
+              <button class="primary-action" id="nutrAddDishBtn">+ Новое блюдо</button>
+            </div>
+            <div id="nutrDishesList" class="nutrition-grid"></div>
+          </div>
+
+          <!-- Продукты -->
+          <div class="nutr-pane" id="nutrPane-products" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+              <h3 style="font-family:'Playfair Display',serif">База продуктов</h3>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="nutrProductSearch" placeholder="Поиск..." style="padding:10px 14px;border:1px solid var(--line);border-radius:14px;font:inherit;font-size:13px;background:var(--paper)"/>
+                <button class="primary-action" id="nutrAddProductBtn">+ Продукт</button>
+              </div>
+            </div>
+            <div class="nutr-filter-row" id="nutrProductFilter">
+              <button class="nutr-tab is-active" data-pf="all">Все</button>
+              <button class="nutr-tab" data-pf="my">Мои</button>
+              <button class="nutr-tab" data-pf="builtin">Встроенные</button>
+            </div>
+            <div id="nutrProductsList" style="margin-top:12px;display:grid;gap:8px"></div>
+          </div>
+
+          <!-- Динамика -->
+          <div class="nutr-pane" id="nutrPane-dynamics" style="display:none">
+            <div class="nutr-filter-row" id="nutrDynFilter" style="margin-bottom:16px">
+              <button class="nutr-tab is-active" data-dynrange="week">Неделя</button>
+              <button class="nutr-tab" data-dynrange="month">Месяц</button>
+              <button class="nutr-tab" data-dynrange="all">Всё время</button>
+            </div>
+            <div class="nutrition-grid">
+              <article class="panel span-2">
+                <div class="panel-head"><div><p class="card-kicker">Калории</p><h3>Потреблено и сожжено</h3></div></div>
+                <div id="nutrDynCaloriesChart" class="calorie-dashboard" style="margin-top:16px"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head"><div><p class="card-kicker">Среднее</p><h3>КБЖУ за период</h3></div></div>
+                <div id="nutrDynMacros" style="margin-top:12px;display:grid;gap:8px"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head"><div><p class="card-kicker">Статистика</p><h3>Дней с записями</h3></div></div>
+                <div id="nutrDynStats" style="margin-top:12px"></div>
+              </article>
+            </div>
           </div>
         </section>
 
