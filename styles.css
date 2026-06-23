@@ -1221,3 +1221,252 @@ h3 {
     height: 22px;
   }
 }
+
+/* =========================================================
+   МОДУЛЬ ПИТАНИЯ (NutriPlan inside DayKeeper)
+   ========================================================= */
+
+.nutr-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.nutr-tab {
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,253,248,.7);
+  color: var(--soft-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+}
+.nutr-tab:hover { border-color: var(--rose); }
+.nutr-tab.is-active {
+  background: linear-gradient(135deg, var(--rose), var(--apricot));
+  border-color: transparent;
+  color: #fff;
+}
+.nutr-pane { display: grid; gap: 16px; }
+.nutr-pane.span-2 { grid-column: span 2; }
+
+/* Сводка дня */
+.nutr-day-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+@media (max-width: 640px) {
+  .nutr-day-summary { grid-template-columns: 1fr 1fr; }
+}
+.nutr-macro-card {
+  background: rgba(255,253,248,.6);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px 16px;
+  text-align: center;
+}
+.nutr-macro-card .val { font-size: 22px; font-weight: 800; font-family: 'Playfair Display', serif; color: var(--ink); }
+.nutr-macro-card .lbl { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+.nutr-macro-card .sub { font-size: 12px; color: var(--soft-ink); margin-top: 4px; }
+
+.nutr-progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--line);
+  margin: 10px 0 4px;
+  overflow: hidden;
+}
+.nutr-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--rose), var(--apricot));
+  transition: width .4s;
+}
+
+/* Приёмы пищи */
+.nutr-meal-group { margin-bottom: 16px; }
+.nutr-meal-group-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.nutr-meal-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255,253,248,.6);
+  border: 1px solid var(--line);
+  margin-bottom: 6px;
+}
+.nutr-meal-item .name { flex: 1; font-weight: 700; font-size: 14px; }
+.nutr-meal-item .kcal { font-size: 13px; font-weight: 800; color: var(--soft-ink); }
+.nutr-meal-item .macro-row { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.nutr-meal-item .del-btn { width: 26px; height: 26px; border-radius: 9px; font-size: 12px; }
+
+/* Активность */
+.nutr-activity-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(185,222,199,.2);
+  border: 1px solid rgba(185,222,199,.5);
+  margin-bottom: 6px;
+}
+.nutr-activity-item .name { font-weight: 700; font-size: 14px; flex: 1; }
+.nutr-activity-item .kcal { font-size: 13px; font-weight: 800; color: var(--mint-deep); }
+
+/* Нутри-ассистент */
+.nutr-quick-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.nutr-quick-prompts button {
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,253,248,.7);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--soft-ink);
+  transition: all .15s;
+}
+.nutr-quick-prompts button:hover { border-color: var(--rose); background: var(--rose-soft); }
+
+.nutr-chat {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 4px 0;
+}
+.nutr-msg {
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 92%;
+}
+.nutr-msg.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--rose), var(--apricot));
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.nutr-msg.assistant {
+  align-self: flex-start;
+  background: rgba(255,253,248,.9);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 4px;
+}
+.nutr-msg.loading { color: var(--muted); font-style: italic; }
+
+.nutr-chat-input {
+  display: flex;
+  gap: 8px;
+}
+.nutr-chat-input input {
+  flex: 1;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255,253,248,.9);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.nutr-chat-input input:focus { border-color: rgba(247,167,184,.8); }
+.nutr-chat-input button {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--rose), var(--apricot));
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  flex-shrink: 0;
+}
+
+/* Блюда */
+.nutr-dish-card {
+  background: rgba(255,253,248,.8);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 16px 18px;
+}
+.nutr-dish-card .emoji { font-size: 28px; margin-bottom: 8px; }
+.nutr-dish-card h4 { font-family: 'Playfair Display', serif; font-size: 16px; margin-bottom: 4px; }
+.nutr-dish-card .macros { font-size: 12px; color: var(--soft-ink); margin-bottom: 10px; }
+.nutr-dish-card .dish-actions { display: flex; gap: 6px; }
+
+/* Продукты */
+.nutr-product-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-radius: 14px;
+  background: rgba(255,253,248,.7);
+  border: 1px solid var(--line);
+}
+.nutr-product-row .pname { flex: 1; font-weight: 700; font-size: 14px; }
+.nutr-product-row .pmacros { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.nutr-product-row .pkcal { font-size: 15px; font-weight: 800; color: var(--ink); min-width: 60px; text-align: right; }
+.nutr-product-row .add-btn { flex-shrink: 0; }
+
+/* Кнопка помощи */
+.nutr-help-btn {
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 1.5px solid var(--rose);
+  background: var(--rose-soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all .15s;
+  width: 100%;
+  text-align: center;
+}
+.nutr-help-btn:hover { background: var(--rose); color: #fff; }
+
+.nutr-filter-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Динамика */
+.nutr-dyn-macro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255,253,248,.6);
+  border: 1px solid var(--line);
+}
+.nutr-dyn-macro .label { font-size: 13px; font-weight: 700; }
+.nutr-dyn-macro .value { font-size: 15px; font-weight: 800; }
