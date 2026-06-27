@@ -1807,12 +1807,13 @@ document.addEventListener("input", e => {
     renderNutrProducts();
   }
 });
-document.querySelectorAll("#nutrProductFilter [data-pf]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    nutrProductFilter = btn.dataset.pf;
-    document.querySelectorAll("#nutrProductFilter [data-pf]").forEach(b => b.classList.toggle("is-active", b === btn));
-    renderNutrProducts();
-  });
+// Фильтры продуктов — делегирование, т.к. панель скрыта при загрузке
+document.addEventListener("click", e => {
+  const pfBtn = e.target.closest("#nutrProductFilter [data-pf]");
+  if (!pfBtn) return;
+  nutrProductFilter = pfBtn.dataset.pf;
+  document.querySelectorAll("#nutrProductFilter [data-pf]").forEach(b => b.classList.toggle("is-active", b === pfBtn));
+  renderNutrProducts();
 });
 
 function renderNutrProducts() {
@@ -1886,12 +1887,13 @@ function openNutrAddProductModal() {
 }
 
 /* ---------- Динамика ---------- */
-document.querySelectorAll("[data-dynrange]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    nutrDynRange = btn.dataset.dynrange;
-    document.querySelectorAll("[data-dynrange]").forEach(b => b.classList.toggle("is-active", b === btn));
-    renderNutrDynamics();
-  });
+// Диапазон динамики — делегирование, т.к. панель скрыта при загрузке
+document.addEventListener("click", e => {
+  const drBtn = e.target.closest("[data-dynrange]");
+  if (!drBtn) return;
+  nutrDynRange = drBtn.dataset.dynrange;
+  document.querySelectorAll("[data-dynrange]").forEach(b => b.classList.toggle("is-active", b === drBtn));
+  renderNutrDynamics();
 });
 
 function renderNutrDynamics() {
