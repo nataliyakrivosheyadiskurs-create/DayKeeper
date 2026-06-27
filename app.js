@@ -139,7 +139,13 @@ function loadDB() {
     return fresh;
   }
 }
-function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+function saveDB(syncType) {
+  localStorage.setItem(DB_KEY, JSON.stringify(DB));
+  // Синхронизируем с Supabase если пользователь авторизован
+  if (syncType && typeof window.__sbQueueSync === "function") {
+    window.__sbQueueSync(syncType);
+  }
+}
 
 /* ---------- ВКЛАДКИ / НАВИГАЦИЯ ---------- */
 const setSection = (id) => {
@@ -229,7 +235,7 @@ function bindTaskRowEvents() {
       const id = btn.closest("[data-task-id]").dataset.taskId;
       const task = DB.tasks.find(t => t.id === id);
       task.done = !task.done;
-      saveDB(); renderTasks(); renderDashboardMisc();
+      saveDB("tasks"); renderTasks(); renderDashboardMisc();
       if (task.done) confettiBurst(btn);
     });
   });
@@ -238,7 +244,7 @@ function bindTaskRowEvents() {
       e.stopPropagation();
       const id = btn.closest("[data-task-id]").dataset.taskId;
       DB.tasks = DB.tasks.filter(t => t.id !== id);
-      saveDB(); renderTasks();
+      saveDB("tasks"); renderTasks();
     });
   });
   document.querySelectorAll(".task-edit").forEach((btn) => {
@@ -363,7 +369,7 @@ function openTaskModal(task) {
       };
       if (editing) Object.assign(task, data);
       else DB.tasks.unshift({ id: uid(), done: false, created: Date.now(), ...data });
-      saveDB(); renderTasks(); renderDashboardMisc(); closeModal();
+      saveDB("tasks"); renderTasks(); renderDashboardMisc(); closeModal();
     });
     root.querySelector("#ti-title").focus();
   });
@@ -470,7 +476,7 @@ function bindHabitEvents() {
       const date = dot.dataset.date;
       const h = DB.habits.find(x => x.id === id);
       if (h.log[date]) delete h.log[date]; else h.log[date] = true;
-      saveDB(); renderHabits();
+      saveDB("habits"); renderHabits();
     });
   });
 }
@@ -501,7 +507,7 @@ function openHabitModal() {
       const name = root.querySelector("#hi-name").value.trim();
       if (!name) { root.querySelector("#hi-name").focus(); return; }
       DB.habits.push({ id: uid(), name, icon, log: {}, created: Date.now() });
-      saveDB(); renderHabits(); closeModal();
+      saveDB("habits"); renderHabits(); closeModal();
     });
     root.querySelector("#hi-name").focus();
   });
@@ -578,7 +584,7 @@ function bindRoutineEvents() {
       const id = btn.closest("[data-routine-id]").dataset.routineId;
       const r = DB.routines.find(x => x.id === id);
       r.lastDone = r.lastDone === todayISO() ? null : todayISO();
-      saveDB(); renderRoutine();
+      saveDB("routines"); renderRoutine();
       if (r.lastDone) confettiBurst(btn);
     });
   });
@@ -587,7 +593,7 @@ function bindRoutineEvents() {
       e.stopPropagation();
       const id = btn.closest("[data-routine-id]").dataset.routineId;
       DB.routines = DB.routines.filter(x => x.id !== id);
-      saveDB(); renderRoutine();
+      saveDB("routines"); renderRoutine();
     });
   });
 }
@@ -670,7 +676,7 @@ function openRoutineModal() {
       }
       if (type === "interval") data.everyDays = Math.max(1, Number(root.querySelector("#ri-every").value) || 7);
       DB.routines.push(data);
-      saveDB(); renderRoutine(); closeModal();
+      saveDB("routines"); renderRoutine(); closeModal();
     });
     root.querySelector("#ri-title").focus();
   });
@@ -754,7 +760,7 @@ function bindMoodEvents() {
         id: uid(), date: todayISO(), time: new Date().toTimeString().slice(0,5),
         tone, emotions, events: [...selectedLifeEvents], note, created: Date.now(),
       });
-      saveDB();
+      saveDB("mood");
       selectedLifeEvents = new Set();
       renderMood();
       const banner = document.createElement("div");
@@ -848,7 +854,7 @@ function openBodyMetricModal() {
       const existingIdx = DB.bodyMetrics.findIndex(m => m.date === date);
       if (existingIdx >= 0) DB.bodyMetrics[existingIdx] = { ...DB.bodyMetrics[existingIdx], ...entry };
       else DB.bodyMetrics.push(entry);
-      saveDB(); renderBodyMetrics(); closeModal();
+      saveDB("body"); renderBodyMetrics(); closeModal();
     });
   });
 }
@@ -922,7 +928,7 @@ function openMealModal() {
       if (!DB.calorieLog[date]) DB.calorieLog[date] = { eaten: 0, burned: 0, meals: [] };
       DB.calorieLog[date].meals.push({ name, time, kcal });
       DB.calorieLog[date].eaten += kcal;
-      saveDB(); renderCalories(); closeModal();
+      saveDB("nutrition_diary"); renderCalories(); closeModal();
     });
   });
 }
@@ -966,7 +972,7 @@ function bindShoppingEvents() {
       const group = DB.shopping.find(g => g.id === groupId);
       const item = group.items.find(i => i.id === itemId);
       item.done = cb.checked;
-      saveDB();
+      saveDB("shopping");
     });
   });
   document.querySelectorAll(".item-del").forEach(btn => {
@@ -975,7 +981,7 @@ function bindShoppingEvents() {
       const itemId = btn.closest("[data-item-id]").dataset.itemId;
       const group = DB.shopping.find(g => g.id === groupId);
       group.items = group.items.filter(i => i.id !== itemId);
-      saveDB(); renderShopping();
+      saveDB("shopping"); renderShopping();
     });
   });
   document.querySelectorAll(".group-del").forEach(btn => {
@@ -983,7 +989,7 @@ function bindShoppingEvents() {
       const groupId = btn.closest("[data-group-id]").dataset.groupId;
       if (!confirm("Удалить категорию со всеми пунктами?")) return;
       DB.shopping = DB.shopping.filter(g => g.id !== groupId);
-      saveDB(); renderShopping();
+      saveDB('shopping'); renderShopping();
     });
   });
   document.querySelectorAll(".add-item-btn").forEach(btn => {
@@ -994,7 +1000,7 @@ function bindShoppingEvents() {
       if (!name) return;
       const group = DB.shopping.find(g => g.id === card.dataset.groupId);
       group.items.push({ id: uid(), name, done: false });
-      saveDB(); renderShopping();
+      saveDB('shopping'); renderShopping();
     };
     btn.addEventListener("click", submit);
     input.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
@@ -1006,7 +1012,7 @@ function bindShoppingEvents() {
       const name = input.value.trim();
       if (!name) return;
       DB.shopping.push({ id: uid(), group: name, items: [] });
-      saveDB(); renderShopping();
+      saveDB('shopping'); renderShopping();
     };
     addGroupBtn.addEventListener("click", submit);
     document.querySelector("#new-group-name").addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
@@ -1037,7 +1043,7 @@ function renderDiary() {
     btn.addEventListener("click", () => {
       const id = btn.closest("[data-entry-id]").dataset.entryId;
       DB.diary = DB.diary.filter(d => d.id !== id);
-      saveDB(); renderDiary();
+      saveDB('diary'); renderDiary();
     });
   });
 }
@@ -1080,7 +1086,7 @@ let diaryPhotos = [];
     if (!text) { textarea.focus(); return; }
     const title = text.split("\n")[0].slice(0, 60);
     DB.diary.unshift({ id: uid(), title, text, tags: [], photos: diaryPhotos.slice(), created: Date.now() });
-    saveDB();
+    saveDB("diary");
     textarea.value = ""; diaryPhotos = []; renderPreview();
     renderDiary();
   });
@@ -1113,7 +1119,7 @@ function renderBirthdays() {
     btn.addEventListener("click", () => {
       const id = btn.closest("[data-bday-id]").dataset.bdayId;
       DB.birthdays = DB.birthdays.filter(b => b.id !== id);
-      saveDB(); renderBirthdays();
+      saveDB('birthdays'); renderBirthdays();
     });
   });
 }
@@ -1140,7 +1146,7 @@ function openBirthdayModal() {
       const d = new Date(dateVal + "T00:00:00");
       const mmdd = String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
       DB.birthdays.push({ id: uid(), name, mmdd, note: root.querySelector("#bd-note").value.trim() });
-      saveDB(); renderBirthdays(); closeModal();
+      saveDB("birthdays"); renderBirthdays(); closeModal();
     });
     root.querySelector("#bd-name").focus();
   });
@@ -1270,7 +1276,7 @@ function getNutrDB() {
       dishes: [],
       products: [],
     };
-    saveDB();
+    saveDB("shopping");
   }
   return DB.nutrition;
 }
@@ -1415,14 +1421,14 @@ function bindNutrDiaryEvents() {
     btn.addEventListener("click", () => {
       const idx = Number(btn.closest("[data-meal-idx]").dataset.mealIdx);
       getTodayNutr().meals.splice(idx, 1);
-      saveDB(); renderNutrDiary();
+      saveDB("nutrition_diary"); renderNutrDiary();
     });
   });
   document.querySelectorAll(".nutr-act-del").forEach(btn => {
     btn.addEventListener("click", () => {
       const idx = Number(btn.closest("[data-act-idx]").dataset.actIdx);
       getTodayNutr().activity.splice(idx, 1);
-      saveDB(); renderNutrDiary();
+      saveDB("nutrition_diary"); renderNutrDiary();
     });
   });
 }
@@ -1552,7 +1558,7 @@ function openNutrAddMealModal(prefillProduct) {
         };
       }
       day.meals.push(entry);
-      saveDB(); renderNutrDiary(); closeModal();
+      saveDB("nutrition_diary"); renderNutrDiary(); closeModal();
     });
   });
 }
@@ -1574,7 +1580,7 @@ function openNutrActivityModal() {
       const name = root.querySelector("#act-name").value.trim() || "Активность";
       const kcal = Number(root.querySelector("#act-kcal").value) || 0;
       getTodayNutr().activity.push({ name, kcal });
-      saveDB(); renderNutrDiary(); closeModal();
+      saveDB("nutrition_diary"); renderNutrDiary(); closeModal();
     });
     root.querySelector("#act-name").focus();
   });
@@ -1612,7 +1618,7 @@ function openNutrSettingsModal() {
         fat:     Number(root.querySelector("#gs-fat").value)     || 55,
       };
       n.preferences = root.querySelector("#gs-prefs").value.trim();
-      saveDB(); renderNutrDiary(); closeModal();
+      saveDB("nutrition_goal"); renderNutrDiary(); closeModal();
     });
   });
 }
@@ -1647,7 +1653,7 @@ document.getElementById("nutrHelpBtn").addEventListener("click", () => {
         const name = row.dataset.helpName;
         const kcal = Number(row.dataset.helpKcal);
         getTodayNutr().meals.push({ mealType:"Перекус", name, grams:0, kcal, protein:0, carbs:kcal*0.8/4, fat:kcal*0.2/9 });
-        saveDB(); renderNutrDiary(); closeModal();
+        saveDB('nutrition_diary'); renderNutrDiary(); closeModal();
       });
     });
   });
@@ -1709,7 +1715,7 @@ function renderNutrDishes() {
       const id = btn.closest("[data-dish-id]").dataset.dishId;
       if (!confirm("Удалить блюдо?")) return;
       getNutrDB().dishes = getNutrDB().dishes.filter(d => d.id !== id);
-      saveDB(); renderNutrDishes();
+      saveDB('nutrition_dishes'); renderNutrDishes();
     });
   });
 }
@@ -1792,7 +1798,7 @@ function openNutrAddDishModal() {
         portionGrams: Number(root.querySelector("#dish-portion").value) || 200,
         ingredients: [...ingredients],
       });
-      saveDB(); renderNutrDishes(); closeModal();
+      saveDB("nutrition_dishes"); renderNutrDishes(); closeModal();
     });
     bindIngEvents();
     root.querySelector("#dish-name").focus();
@@ -1846,7 +1852,7 @@ function renderNutrProducts() {
     btn.addEventListener("click", () => {
       const id = btn.closest("[data-prod-id]").dataset.prodId;
       getNutrDB().products = getNutrDB().products.filter(p => p.id !== id);
-      saveDB(); renderNutrProducts();
+      saveDB('nutrition_products'); renderNutrProducts();
     });
   });
 }
@@ -1880,7 +1886,7 @@ function openNutrAddProductModal() {
         carbs:   Number(root.querySelector("#prod-carbs").value)   || 0,
         fat:     Number(root.querySelector("#prod-fat").value)     || 0,
       });
-      saveDB(); renderNutrProducts(); closeModal();
+      saveDB("nutrition_products"); renderNutrProducts(); closeModal();
     });
     root.querySelector("#prod-name").focus();
   });
