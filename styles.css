@@ -1470,3 +1470,131 @@ h3 {
 }
 .nutr-dyn-macro .label { font-size: 13px; font-weight: 700; }
 .nutr-dyn-macro .value { font-size: 15px; font-weight: 800; }
+
+
+/* =========================================================
+   АВТОРИЗАЦИЯ
+   ========================================================= */
+.auth-wrap {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--bg);
+  z-index: 1000;
+}
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 36px 32px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(145deg, rgba(255,253,248,.98), rgba(255,247,237,.96));
+  border: 1px solid rgba(73,55,42,.1);
+  box-shadow: 0 24px 64px rgba(73,55,42,.12);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.auth-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0 auto 12px;
+  box-shadow: 0 8px 24px rgba(247,167,184,.4);
+}
+.auth-logo img { width: 100%; height: 100%; object-fit: cover; }
+.auth-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  text-align: center;
+  margin: 0;
+  color: var(--ink);
+}
+.auth-sub {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.auth-error {
+  background: rgba(247,167,184,.25);
+  border: 1px solid rgba(247,167,184,.6);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #8b3a4a;
+  margin-bottom: 8px;
+}
+.auth-divider {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin: 6px 0;
+  position: relative;
+}
+.auth-divider::before, .auth-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 38%;
+  height: 1px;
+  background: var(--line);
+}
+.auth-divider::before { left: 0; }
+.auth-divider::after { right: 0; }
+.auth-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 12px;
+}
+
+/* Шапка приложения: кнопка выхода */
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.topbar-email {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-logout {
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.topbar-logout:hover { border-color: var(--rose); color: var(--ink); }
+
+/* Индикатор синхронизации */
+.sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(185,222,199,.2);
+}
+.sync-indicator.syncing { background: rgba(248,230,163,.3); }
+.sync-indicator.error { background: rgba(247,167,184,.2); color: #8b3a4a; }
