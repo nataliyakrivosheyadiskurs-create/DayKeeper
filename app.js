@@ -1312,15 +1312,16 @@ let nutrActiveTab = "diary";
 let nutrProductFilter = "all";
 let nutrDynRange = "week";
 
-document.querySelectorAll(".nutr-tab[data-nutr-tab]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    nutrActiveTab = btn.dataset.nutrTab;
-    document.querySelectorAll(".nutr-tab[data-nutr-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
-    document.querySelectorAll(".nutr-pane[id^='nutrPane-']").forEach(p => p.style.display = "none");
-    const pane = document.getElementById("nutrPane-" + nutrActiveTab);
-    if (pane) pane.style.display = "grid";
-    renderNutrTab(nutrActiveTab);
-  });
+// Вкладки питания — делегирование на document, чтобы работало после показа экрана
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".nutr-tab[data-nutr-tab]");
+  if (!btn) return;
+  nutrActiveTab = btn.dataset.nutrTab;
+  document.querySelectorAll(".nutr-tab[data-nutr-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
+  document.querySelectorAll(".nutr-pane[id^='nutrPane-']").forEach(p => p.style.display = "none");
+  const pane = document.getElementById("nutrPane-" + nutrActiveTab);
+  if (pane) pane.style.display = "grid";
+  renderNutrTab(nutrActiveTab);
 });
 
 function renderNutrTab(tab) {
@@ -1434,7 +1435,7 @@ function bindNutrDiaryEvents() {
 }
 
 /* ---------- Кнопка "+ Добавить" ---------- */
-document.getElementById("nutrAddMealBtn").addEventListener("click", openNutrAddMealModal);
+document.addEventListener("click", e => { if (e.target.closest("#nutrAddMealBtn")) openNutrAddMealModal(); });
 
 function openNutrAddMealModal(prefillProduct) {
   const products = allProducts();
@@ -1564,7 +1565,7 @@ function openNutrAddMealModal(prefillProduct) {
 }
 
 /* ---------- Активность ---------- */
-document.getElementById("nutrAddActivityBtn").addEventListener("click", openNutrActivityModal);
+document.addEventListener("click", e => { if (e.target.closest("#nutrAddActivityBtn")) openNutrActivityModal(); });
 function openNutrActivityModal() {
   openModal(`
     <h3>Добавить активность</h3>
@@ -1587,7 +1588,7 @@ function openNutrActivityModal() {
 }
 
 /* ---------- Настройки / Цель ---------- */
-document.getElementById("nutrSettingsBtn").addEventListener("click", openNutrSettingsModal);
+document.addEventListener("click", e => { if (e.target.closest("#nutrSettingsBtn")) openNutrSettingsModal(); });
 function openNutrSettingsModal() {
   const g = getNutrDB().goal;
   openModal(`
@@ -1624,7 +1625,7 @@ function openNutrSettingsModal() {
 }
 
 /* ---------- Кнопка "Мне плохо" ---------- */
-document.getElementById("nutrHelpBtn").addEventListener("click", () => {
+document.addEventListener("click", e => { if (!e.target.closest("#nutrHelpBtn")) return;
   openModal(`
     <h3>🍫 Плохо? Вот что поможет</h3>
     <p class="muted-copy" style="margin-bottom:16px">Похоже на гипогликемию или просто нужна быстрая энергия. Что есть рядом?</p>
@@ -1720,7 +1721,7 @@ function renderNutrDishes() {
   });
 }
 
-document.getElementById("nutrAddDishBtn").addEventListener("click", openNutrAddDishModal);
+document.addEventListener("click", e => { if (e.target.closest("#nutrAddDishBtn")) openNutrAddDishModal(); });
 function openNutrAddDishModal() {
   const products = allProducts();
   let ingredients = []; // [{productId, name, grams}]
@@ -1857,7 +1858,7 @@ function renderNutrProducts() {
   });
 }
 
-document.getElementById("nutrAddProductBtn").addEventListener("click", openNutrAddProductModal);
+document.addEventListener("click", e => { if (e.target.closest("#nutrAddProductBtn")) openNutrAddProductModal(); });
 function openNutrAddProductModal() {
   openModal(`
     <h3>Новый продукт</h3>
@@ -1965,7 +1966,7 @@ function checkNutrApiKey() {
   if (wrap) wrap.style.display = key ? "none" : "block";
 }
 
-document.getElementById("nutrApiKeySave").addEventListener("click", () => {
+document.addEventListener("click", e => { if (!e.target.closest("#nutrApiKeySave")) return;
   const key = document.getElementById("nutrApiKeyInput").value.trim();
   if (!key.startsWith("sk-ant-")) { alert("Ключ должен начинаться с sk-ant-"); return; }
   getNutrDB().apiKey = key;
@@ -1973,7 +1974,7 @@ document.getElementById("nutrApiKeySave").addEventListener("click", () => {
   document.getElementById("nutrApiKeyWrap").style.display = "none";
 });
 
-document.getElementById("nutrChatSend").addEventListener("click", sendNutrChat);
+document.addEventListener("click", e => { if (e.target.closest("#nutrChatSend")) sendNutrChat(); });
 document.getElementById("nutrChatInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendNutrChat(); } });
 
 document.querySelectorAll("#nutrQuickPrompts button").forEach(btn => {
