@@ -880,13 +880,13 @@ function renderCalories() {
   document.querySelector("#healthCalories").innerHTML = barsHTML;
 
   const today = DB.calorieLog[todayISO()] || { eaten: 0, burned: 0, meals: [] };
-  document.querySelector("#calorieMini").innerHTML = `
+  const _cm = document.querySelector("#calorieMini"); if(_cm) _cm.innerHTML = `
     <div class="metric">${today.eaten}</div>
     <p class="muted-copy">потреблено · ${today.burned} потрачено</p>
     <div class="progress"><span style="width:${Math.min(100, today.burned ? (today.eaten/today.burned)*100 : 0)}%"></span></div>
   `;
 
-  document.querySelector("#nutritionCalories").innerHTML = `
+  const _nc = document.querySelector("#nutritionCalories"); if(_nc) _nc.innerHTML = `
     <div class="calorie-total">
       <div><span>Потреблено</span><strong>${today.eaten} ккал</strong></div>
       <div><span>Потрачено</span><strong>${today.burned} ккал</strong></div>
@@ -1423,7 +1423,7 @@ function renderNutrDiary() {
     : `<p class="muted-copy" style="padding:8px 0">Активности нет</p>`;
 
   // Калории на дашборде
-  document.querySelector("#calorieMini").innerHTML = `
+  const _cm = document.querySelector("#calorieMini"); if(_cm) _cm.innerHTML = `
     <div class="metric">${totals.kcal}</div>
     <p class="muted-copy">потреблено · ${totals.burned} сожжено</p>
     <div class="progress"><span style="width:${pct}%"></span></div>
