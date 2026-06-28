@@ -201,12 +201,13 @@ async function loadAllDataFromSupabase() {
     if (!DB.nutrition) DB.nutrition = { goal: {kcal:1500,protein:105,carbs:160,fat:55}, apiKey: "", preferences: "", diary: {}, dishes: [], products: [] };
     DB.nutrition.diary = {};
     (nutritionDiary.data || []).forEach(d => {
-      const meals = (d.meals || []);
-      const activity = (d.activity || []);
+      // jsonb из Supabase может прийти как объект или массив — нормализуем
+      const meals = Array.isArray(d.meals) ? d.meals : (d.meals ? Object.values(d.meals) : []);
+      const activity = Array.isArray(d.activity) ? d.activity : (d.activity ? Object.values(d.activity) : []);
       DB.nutrition.diary[d.diary_date] = { meals, activity };
       // Для совместимости с calorieMini на дашборде
-      const kcal = meals.reduce((s, m) => s + (m.kcal || 0), 0);
-      const burned = activity.reduce((s, a) => s + (a.kcal || 0), 0);
+      const kcal = meals.reduce((s, m) => s + (Number(m.kcal) || 0), 0);
+      const burned = activity.reduce((s, a) => s + (Number(a.kcal) || 0), 0);
       DB.calorieLog[d.diary_date] = { eaten: kcal, burned, meals };
     });
 
@@ -259,18 +260,23 @@ async function loadAllDataFromSupabase() {
   }
 }
 
+function safeRender(name, fn) {
+  try { if (typeof fn === "function") fn(); }
+  catch(e) { console.warn("[DK] render error in " + name + ":", e.message); }
+}
+
 function rerenderAll() {
-  if (typeof renderTasks === "function") renderTasks();
-  if (typeof renderHabits === "function") renderHabits();
-  if (typeof renderMood === "function") renderMood();
-  if (typeof renderRoutine === "function") renderRoutine();
-  if (typeof renderBodyMetrics === "function") renderBodyMetrics();
-  if (typeof renderCalories === "function") renderCalories();
-  if (typeof renderShopping === "function") renderShopping();
-  if (typeof renderDiary === "function") renderDiary();
-  if (typeof renderBirthdays === "function") renderBirthdays();
-  if (typeof renderDashboardMisc === "function") renderDashboardMisc();
-  if (typeof renderNutrDiary === "function") renderNutrDiary();
+  safeRender("tasks",         renderTasks);
+  safeRender("habits",        renderHabits);
+  safeRender("mood",          renderMood);
+  safeRender("routine",       renderRoutine);
+  safeRender("bodyMetrics",   renderBodyMetrics);
+  safeRender("shopping",      renderShopping);
+  safeRender("diary",         renderDiary);
+  safeRender("birthdays",     renderBirthdays);
+  safeRender("dashboardMisc", renderDashboardMisc);
+  safeRender("nutrDiary",     renderNutrDiary);
+  // renderCalories вызывается внутри renderNutrDiary — не вызываем отдельно
 }
 
 /* =========================================================
