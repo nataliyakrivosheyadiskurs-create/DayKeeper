@@ -1312,22 +1312,32 @@ let nutrActiveTab = "diary";
 let nutrProductFilter = "all";
 let nutrDynRange = "week";
 
-// Вкладки питания — делегирование на document, чтобы работало после показа экрана
+// Вкладки питания — делегирование на document
 document.addEventListener("click", e => {
   const btn = e.target.closest(".nutr-tab[data-nutr-tab]");
   if (!btn) return;
   nutrActiveTab = btn.dataset.nutrTab;
-  document.querySelectorAll(".nutr-tab[data-nutr-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
-  document.querySelectorAll(".nutr-pane[id^='nutrPane-']").forEach(p => {
-    p.classList.remove("nutr-pane-visible");
-    p.setAttribute("hidden", "");
+  console.log("[DK] tab click:", nutrActiveTab);
+
+  // Скрываем все панели
+  document.querySelectorAll(".nutr-pane").forEach(p => {
+    p.style.cssText = "display:none!important";
   });
+
+  // Показываем нужную
   const pane = document.getElementById("nutrPane-" + nutrActiveTab);
+  console.log("[DK] pane found:", pane ? pane.id : "NOT FOUND");
   if (pane) {
-    pane.removeAttribute("hidden");
-    pane.classList.add("nutr-pane-visible");
+    pane.style.cssText = "display:grid!important;gap:16px";
   }
+
+  // Активная кнопка
+  document.querySelectorAll(".nutr-tab[data-nutr-tab]").forEach(b => {
+    b.classList.toggle("is-active", b === btn);
+  });
+
   renderNutrTab(nutrActiveTab);
+  console.log("[DK] renderNutrTab done:", nutrActiveTab);
 });
 
 function renderNutrTab(tab) {
