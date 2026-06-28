@@ -1250,7 +1250,10 @@ h3 {
   border-color: transparent;
   color: #fff;
 }
-.nutr-pane { display: grid; gap: 16px; }
+.nutr-pane { display: none; gap: 16px; }
+.nutr-pane[hidden] { display: none !important; }
+.nutr-pane:not([hidden]) { display: grid; }
+.nutr-pane.nutr-pane-visible { display: grid !important; }
 .nutr-pane.span-2 { grid-column: span 2; }
 
 /* Сводка дня */
