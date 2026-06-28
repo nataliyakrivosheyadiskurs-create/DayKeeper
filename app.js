@@ -379,6 +379,24 @@ function openTaskModal(task) {
 document.querySelectorAll(".topbar .primary-action").forEach(btn => {
   if (btn.textContent.includes("Новая запись")) btn.addEventListener("click", () => openTaskModal(null));
 });
+
+// Кнопка "+ Запись" в Дневнике и "+ Запись" в Состоянии через делегирование
+document.addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  // Дневник — кнопка в шапке секции
+  if (btn.closest("#diary .section-head") && btn.classList.contains("secondary-action")) {
+    const ta = document.querySelector("#diary textarea");
+    if (ta) { ta.focus(); ta.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    return;
+  }
+  // Состояние — кнопка в шапке секции
+  if (btn.closest("#health .section-head") && btn.classList.contains("secondary-action")) {
+    const firstCard = document.querySelector(".mood-card");
+    if (firstCard) firstCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+});
 /* Кнопка в hero "Открыть дневник" / "Записать состояние" уже работают через data-section */
 
 /* Добавляем кнопку "+ Задача" в шапку секции задач */
@@ -778,19 +796,69 @@ function renderMoodHistory() {
     box = document.createElement("article");
     box.className = "panel span-2";
     box.id = "moodHistory";
-    box.innerHTML = `<div class="panel-head"><div><p class="card-kicker">История</p><h3>Последние записи</h3></div></div><div id="moodHistoryList" style="display:grid;gap:10px;margin-top:16px"></div>`;
     lifeTagsPanel.after(box);
   }
-  const list = DB.moodEntries.slice().sort((a,b) => b.created - a.created).slice(0, 8);
-  document.querySelector("#moodHistoryList").innerHTML = list.length ? list.map(m => `
-    <div class="task-row">
-      <span class="tag" style="background:${m.tone==='good'?'var(--mint)':m.tone==='bad'?'var(--rose-soft)':'var(--lemon)'};color:#3a3128">${TONE_BADGE[m.tone]}</span>
-      <div style="flex:1;min-width:0">
-        <strong>${fmtHuman(m.date)} · ${m.time}</strong>
-        <div class="meta">${[...(m.emotions||[]), ...(m.events||[])].join(", ") || "Без деталей"}${m.note ? ` — «${esc(m.note)}»` : ""}</div>
-      </div>
+
+  const list = DB.moodEntries.slice().sort((a,b) => b.created - a.created);
+  
+  // Динамика за последние 14 дней
+  const last14 = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = offsetISO(-i);
+    const entry = list.find(m => m.date === d);
+    last14.push({ date: d, tone: entry?.tone || null, day: RU_DAYS_SHORT[new Date(d+"T00:00:00").getDay()] });
+  }
+
+  // Топ событий которые влияют
+  const eventCounts = {};
+  list.forEach(m => (m.events||[]).forEach(e => { eventCounts[e] = (eventCounts[e]||0)+1; }));
+  const topEvents = Object.entries(eventCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+  box.innerHTML = `
+    <div class="panel-head"><div><p class="card-kicker">История</p><h3>Динамика состояния</h3></div></div>
+    
+    <div style="display:flex;gap:4px;margin:16px 0 8px;align-items:flex-end">
+      ${last14.map(d => {
+        const color = d.tone === 'good' ? 'var(--mint)' : d.tone === 'bad' ? 'var(--rose)' : d.tone === 'neutral' ? 'var(--lemon)' : 'var(--line)';
+        const h = d.tone ? '32px' : '8px';
+        const emoji = d.tone === 'good' ? '😊' : d.tone === 'bad' ? '😔' : d.tone === 'neutral' ? '😐' : '';
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:12px">${emoji}</div>
+          <div style="width:100%;height:${h};border-radius:6px;background:${color};transition:height .3s" title="${fmtHuman(d.date)}${d.tone?' · '+TONE_LABEL[d.tone]:''}"></div>
+          <div style="font-size:9px;color:var(--muted);font-weight:700">${d.day}</div>
+        </div>`;
+      }).join("")}
     </div>
-  `).join("") : `<p class="muted-copy">Записей пока нет</p>`;
+
+    ${topEvents.length ? `
+    <div style="margin-top:14px">
+      <p class="card-kicker">Что чаще всего влияет</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+        ${topEvents.map(([e,n]) => `<span style="padding:5px 12px;border-radius:999px;background:rgba(221,212,251,.3);border:1px solid rgba(221,212,251,.6);font-size:12px;font-weight:700">${e} <span style="color:var(--muted)">${n}</span></span>`).join("")}
+      </div>
+    </div>` : ""}
+
+    <div style="display:grid;gap:8px;margin-top:16px" id="moodHistoryList">
+      ${list.slice(0,8).map(m => `
+        <div class="task-row">
+          <span class="tag" style="background:${m.tone==='good'?'var(--mint)':m.tone==='bad'?'var(--rose-soft)':'var(--lemon)'};color:#3a3128;flex-shrink:0">${TONE_BADGE[m.tone]}</span>
+          <div style="flex:1;min-width:0">
+            <strong>${fmtHuman(m.date)} · ${m.time}</strong>
+            <div class="meta">${[...(m.emotions||[]), ...(m.events||[])].join(", ") || "Без деталей"}${m.note ? ` — «${esc(m.note)}»` : ""}</div>
+          </div>
+          <button class="icon-action mood-del" data-mood-id="${m.id}" style="width:28px;height:28px;font-size:12px;flex-shrink:0">✕</button>
+        </div>
+      `).join("") || `<p class="muted-copy">Записей пока нет</p>`}
+    </div>
+  `;
+
+  // Delete mood entries
+  box.querySelectorAll(".mood-del").forEach(btn => {
+    btn.addEventListener("click", () => {
+      DB.moodEntries = DB.moodEntries.filter(m => m.id !== btn.dataset.moodId);
+      saveDB("mood"); renderMood();
+    });
+  });
 }
 
 /* =========================================================
@@ -1048,16 +1116,33 @@ function renderDiary() {
   });
 }
 let diaryPhotos = [];
+function compressImage(dataURL, maxWidth, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.src = dataURL;
+  });
+}
+
 (function bindDiaryEditor(){
   const textarea = document.querySelector("#diary textarea");
   if (!textarea) return;
   const attachRow = textarea.closest(".journal-editor").querySelector(".attachment-row");
-  const photoBtn = attachRow.querySelectorAll(".ghost-action")[0];
-  const imageBtn = attachRow.querySelectorAll(".ghost-action")[1];
+  if (!attachRow) return;
+  const photoBtns = attachRow.querySelectorAll(".ghost-action");
   const saveBtn = attachRow.querySelector(".primary-action");
+  if (!saveBtn) return;
 
   const fileInput = document.createElement("input");
   fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.multiple = true; fileInput.style.display = "none";
+  fileInput.setAttribute("capture", "environment"); // на мобильном открывает камеру/галерею
   document.body.appendChild(fileInput);
 
   let previewBox = document.createElement("div");
@@ -1072,16 +1157,27 @@ let diaryPhotos = [];
       diaryPhotos.splice(Number(b.dataset.idx), 1); renderPreview();
     }));
   }
-  [photoBtn, imageBtn].forEach(b => b.addEventListener("click", (e) => { e.preventDefault(); fileInput.click(); }));
-  fileInput.addEventListener("change", () => {
-    [...fileInput.files].forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => { diaryPhotos.push(reader.result); renderPreview(); };
-      reader.readAsDataURL(file);
-    });
+
+  photoBtns.forEach(b => b.addEventListener("click", (e) => { e.preventDefault(); fileInput.click(); }));
+
+  fileInput.addEventListener("change", async () => {
+    const files = [...fileInput.files];
     fileInput.value = "";
+    for (const file of files) {
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        // Сжимаем до 800px max и качество 0.7 — достаточно для дневника
+        const compressed = await compressImage(ev.target.result, 800, 0.7);
+        diaryPhotos.push(compressed);
+        renderPreview();
+      };
+      reader.readAsDataURL(file);
+    }
   });
-  saveBtn.addEventListener("click", () => {
+
+  // Сохранение — работает и по клику и по тапу на мобильном
+  saveBtn.addEventListener("click", (e) => {
+    e.preventDefault();
     const text = textarea.value.trim();
     if (!text) { textarea.focus(); return; }
     const title = text.split("\n")[0].slice(0, 60);
@@ -1089,6 +1185,9 @@ let diaryPhotos = [];
     saveDB("diary");
     textarea.value = ""; diaryPhotos = []; renderPreview();
     renderDiary();
+    // Скроллим к записям
+    const feed = document.querySelector("#diaryFeed");
+    if (feed) setTimeout(() => feed.scrollIntoView({ behavior: "smooth" }), 100);
   });
 })();
 
@@ -1127,25 +1226,41 @@ function renderBirthdays() {
   const btn = document.querySelector('#birthdays .section-head .secondary-action');
   if (btn) btn.addEventListener("click", openBirthdayModal);
 })();
-function openBirthdayModal() {
+function openBirthdayModal(existing) {
+  const MONTH_NAMES = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  const selMM = existing ? existing.mmdd.split("-")[0] : "01";
+  const selDD = existing ? existing.mmdd.split("-")[1] : "01";
+
   openModal(`
-    <h3>Новый день рождения</h3>
-    <div class="gd-field"><label>Имя</label><input type="text" id="bd-name" placeholder="Имя человека"/></div>
-    <div class="gd-field"><label>Дата рождения</label><input type="date" id="bd-date"/></div>
-    <div class="gd-field"><label>Заметка / идея подарка</label><textarea id="bd-note" style="min-height:60px" placeholder="Например: идея подарка..."></textarea></div>
+    <h3>${existing ? "Изменить" : "Новый день рождения"}</h3>
+    <div class="gd-field"><label>Имя</label><input type="text" id="bd-name" value="${esc(existing?.name||"")}" placeholder="Имя человека"/></div>
+    <div class="gd-row2">
+      <div class="gd-field"><label>Месяц</label>
+        <select id="bd-month">${MONTH_NAMES.map((m,i)=>`<option value="${String(i+1).padStart(2,"0")}" ${String(i+1).padStart(2,"0")===selMM?"selected":""}>${m}</option>`).join("")}</select>
+      </div>
+      <div class="gd-field"><label>День</label>
+        <input type="number" id="bd-day" min="1" max="31" value="${Number(selDD)}" style="text-align:center"/>
+      </div>
+    </div>
+    <div class="gd-field"><label>Заметка / идея подарка</label><textarea id="bd-note" style="min-height:60px" placeholder="Например: идея подарка...">${esc(existing?.note||"")}</textarea></div>
     <div class="gd-actions">
       <button class="secondary-action" id="bd-cancel">Отмена</button>
-      <button class="primary-action" id="bd-save">Добавить</button>
+      <button class="primary-action" id="bd-save">${existing ? "Сохранить" : "Добавить"}</button>
     </div>
   `, (root) => {
     root.querySelector("#bd-cancel").addEventListener("click", closeModal);
     root.querySelector("#bd-save").addEventListener("click", () => {
       const name = root.querySelector("#bd-name").value.trim();
-      const dateVal = root.querySelector("#bd-date").value;
-      if (!name || !dateVal) { root.querySelector(!name ? "#bd-name" : "#bd-date").focus(); return; }
-      const d = new Date(dateVal + "T00:00:00");
-      const mmdd = String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
-      DB.birthdays.push({ id: uid(), name, mmdd, note: root.querySelector("#bd-note").value.trim() });
+      const mm = root.querySelector("#bd-month").value;
+      const dd = String(Math.min(31, Math.max(1, Number(root.querySelector("#bd-day").value)||1))).padStart(2,"0");
+      if (!name) { root.querySelector("#bd-name").focus(); return; }
+      const mmdd = mm + "-" + dd;
+      const note = root.querySelector("#bd-note").value.trim();
+      if (existing) {
+        existing.name = name; existing.mmdd = mmdd; existing.note = note;
+      } else {
+        DB.birthdays.push({ id: uid(), name, mmdd, note });
+      }
       saveDB("birthdays"); renderBirthdays(); closeModal();
     });
     root.querySelector("#bd-name").focus();
@@ -1165,6 +1280,44 @@ function renderDashboardMisc() {
   const topStreak = top ? habitStreak(top) : 0;
   const sidebarStrong = document.querySelector(".sidebar-card strong");
   if (sidebarStrong) sidebarStrong.textContent = topStreak > 0 ? `Ты уже держишь ритм ${topStreak} ${plural(topStreak,"день","дня","дней")}` : "Сегодня хороший день для первого шага";
+
+  // Напоминания о ДР
+  renderBirthdayReminders();
+}
+
+function renderBirthdayReminders() {
+  // Find or create reminder block on dashboard
+  let box = document.getElementById("bdayReminders");
+  if (!box) {
+    const grid = document.querySelector("#dashboard .widget-grid");
+    if (!grid) return;
+    box = document.createElement("div");
+    box.id = "bdayReminders";
+    box.style.cssText = "grid-column:1/-1;display:flex;flex-direction:column;gap:8px";
+    grid.prepend(box);
+  }
+
+  const upcoming = DB.birthdays
+    .map(b => ({ ...b, days: daysUntilBirthday(b.mmdd) }))
+    .filter(b => b.days <= 7)
+    .sort((a, b) => a.days - b.days);
+
+  box.innerHTML = upcoming.map(b => {
+    const [mm, dd] = b.mmdd.split("-").map(Number);
+    const dateStr = `${dd} ${RU_MONTHS[mm-1]}`;
+    const isToday = b.days === 0;
+    const label = isToday ? "Сегодня! 🎉" : b.days === 1 ? "Завтра" : `Через ${b.days} ${plural(b.days,"день","дня","дней")}`;
+    const color = isToday ? "var(--rose)" : b.days <= 3 ? "var(--apricot)" : "var(--lemon)";
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:16px;background:${color}22;border:1px solid ${color}66">
+        <span style="font-size:22px">🎂</span>
+        <div style="flex:1">
+          <strong style="font-size:14px">${esc(b.name)}</strong>
+          <div style="font-size:12px;color:var(--muted)">${dateStr} · ${label}</div>
+          ${b.note ? `<div style="font-size:12px;color:var(--soft-ink);margin-top:2px">${esc(b.note)}</div>` : ""}
+        </div>
+      </div>`;
+  }).join("");
 }
 
 /* ---------- confetti ---------- */
@@ -1185,6 +1338,103 @@ function confettiBurst(el) {
   document.head.appendChild(s);
 })();
 
+
+/* =========================================================
+   PUSH-УВЕДОМЛЕНИЯ (браузерные Web Notifications)
+   ========================================================= */
+function requestNotifPermission() {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}
+
+function scheduleNotifications() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+  const now = new Date();
+  const todayStr = todayISO();
+
+  // Задачи на сегодня — уведомление за 30 минут до времени
+  DB.tasks.filter(t => !t.done && t.date === todayStr && t.time).forEach(task => {
+    const [h, m] = task.time.split(":").map(Number);
+    const taskTime = new Date();
+    taskTime.setHours(h, m - 30, 0, 0);
+    const msUntil = taskTime - now;
+    if (msUntil > 0 && msUntil < 86400000) {
+      setTimeout(() => {
+        new Notification("DayKeeper 🦊", {
+          body: `Через 30 мин: ${task.title}`,
+          icon: "/DayKeeper/assets/favicon-32.png",
+          tag: "task-" + task.id,
+        });
+      }, msUntil);
+    }
+  });
+
+  // Дни рождения — уведомление утром если ДР сегодня, через 3 или 7 дней
+  DB.birthdays.forEach(b => {
+    const days = daysUntilBirthday(b.mmdd);
+    if (days === 0 || days === 3 || days === 7) {
+      // Уведомить в 9:00 если ещё не было
+      const notifTime = new Date();
+      notifTime.setHours(9, 0, 0, 0);
+      const msUntil = notifTime - now;
+      const storageKey = `dk_notif_bday_${b.id}_${todayStr}`;
+      if (!localStorage.getItem(storageKey)) {
+        const delay = msUntil > 0 ? msUntil : 0;
+        setTimeout(() => {
+          localStorage.setItem(storageKey, "1");
+          const msg = days === 0
+            ? `Сегодня день рождения у ${b.name}! 🎉`
+            : `День рождения ${b.name} через ${days} ${plural(days,"день","дня","дней")} 🎂`;
+          new Notification("DayKeeper 🦊", {
+            body: msg,
+            icon: "/DayKeeper/assets/favicon-32.png",
+            tag: "bday-" + b.id + "-" + days,
+          });
+        }, delay);
+      }
+    }
+  });
+}
+
+// Кнопка разрешения уведомлений — добавляем на дашборд если ещё не разрешено
+function renderNotifBanner() {
+  if (!("Notification" in window)) return;
+  const existing = document.getElementById("notifBanner");
+  if (Notification.permission === "granted") {
+    if (existing) existing.remove();
+    scheduleNotifications();
+    return;
+  }
+  if (Notification.permission === "denied" || existing) return;
+
+  const banner = document.createElement("div");
+  banner.id = "notifBanner";
+  banner.style.cssText = "grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:16px;background:rgba(248,230,163,.3);border:1px solid rgba(248,230,163,.7);margin-bottom:4px";
+  banner.innerHTML = `
+    <span style="font-size:22px">🔔</span>
+    <div style="flex:1;font-size:13px">
+      <strong>Включить уведомления?</strong>
+      <div style="color:var(--muted);margin-top:2px">Буду напоминать о задачах и днях рождения</div>
+    </div>
+    <button class="primary-action" id="notifAllow" style="padding:9px 16px;font-size:12px;white-space:nowrap">Включить</button>
+    <button class="secondary-action" id="notifDismiss" style="padding:9px 14px;font-size:12px">✕</button>
+  `;
+  const grid = document.querySelector("#dashboard .widget-grid");
+  if (grid) grid.prepend(banner);
+
+  document.getElementById("notifAllow").addEventListener("click", async () => {
+    const perm = await Notification.requestPermission();
+    if (perm === "granted") {
+      banner.remove();
+      scheduleNotifications();
+    }
+  });
+  document.getElementById("notifDismiss").addEventListener("click", () => banner.remove());
+}
+
 /* =========================================================
    INIT
    ========================================================= */
@@ -1198,6 +1448,7 @@ renderShopping();
 renderDiary();
 renderBirthdays();
 renderDashboardMisc();
+renderNotifBanner();
 
 /* =========================================================
    SUPABASE MIGRATION (заготовка на будущее)
@@ -1350,17 +1601,30 @@ function renderNutrTab(tab) {
 /* ---------- Дневник питания ---------- */
 const MEAL_TYPES = ["Завтрак","Второй завтрак","Обед","Перекус","Ужин","Поздний перекус"];
 
+let nutrDiaryDate = todayISO(); // текущая дата дневника (можно менять)
+
 function renderNutrDiary() {
   const n = getNutrDB();
-  const day = getTodayNutr();
+  if (!n.diary[nutrDiaryDate]) n.diary[nutrDiaryDate] = { meals: [], activity: [] };
+  const day = n.diary[nutrDiaryDate];
   const totals = calcDayTotals(day);
   const goal = n.goal;
   const pct = Math.min(100, Math.round((totals.kcal / goal.kcal) * 100));
   const deficit = goal.kcal - totals.kcal + totals.burned;
 
+  const isToday = nutrDiaryDate === todayISO();
+  const displayDate = isToday ? "Сегодня" : fmtHuman(nutrDiaryDate);
   document.getElementById("nutrDaySummary").innerHTML = `
     <div class="panel-head">
-      <div><p class="card-kicker">Сегодня</p><h3>🎯 ${goal.kcal} ккал цель</h3></div>
+      <div>
+        <p class="card-kicker" style="display:flex;align-items:center;gap:8px">
+          <button id="nutrPrevDay" style="width:28px;height:28px;border-radius:9px;border:1px solid var(--line);background:rgba(255,253,248,.8);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">‹</button>
+          <input type="date" id="nutrDatePicker" value="${nutrDiaryDate}" style="border:none;background:transparent;font:inherit;font-size:13px;font-weight:800;color:var(--soft-ink);cursor:pointer;padding:0"/>
+          <button id="nutrNextDay" style="width:28px;height:28px;border-radius:9px;border:1px solid var(--line);background:rgba(255,253,248,.8);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">›</button>
+          ${!isToday ? `<button id="nutrGoToday" style="padding:4px 10px;border-radius:9px;border:1px solid var(--line);background:rgba(255,253,248,.8);font-size:11px;font-weight:800;cursor:pointer">сегодня</button>` : ""}
+        </p>
+        <h3>🎯 ${goal.kcal} ккал цель</h3>
+      </div>
       <span class="soft-badge ${pct >= 100 ? 'rose' : 'mint'}">${pct}% от нормы</span>
     </div>
     <div class="nutr-day-summary" style="margin-top:16px">
@@ -1422,6 +1686,24 @@ function renderNutrDiary() {
     `).join("")
     : `<p class="muted-copy" style="padding:8px 0">Активности нет</p>`;
 
+  // Навигация по датам
+  const datePicker = document.getElementById("nutrDatePicker");
+  if (datePicker) {
+    datePicker.addEventListener("change", e => { nutrDiaryDate = e.target.value; renderNutrDiary(); });
+  }
+  const prevBtn = document.getElementById("nutrPrevDay");
+  if (prevBtn) prevBtn.addEventListener("click", () => {
+    const d = new Date(nutrDiaryDate + "T00:00:00"); d.setDate(d.getDate()-1);
+    nutrDiaryDate = d.toISOString().split("T")[0]; renderNutrDiary();
+  });
+  const nextBtn = document.getElementById("nutrNextDay");
+  if (nextBtn) nextBtn.addEventListener("click", () => {
+    const d = new Date(nutrDiaryDate + "T00:00:00"); d.setDate(d.getDate()+1);
+    nutrDiaryDate = d.toISOString().split("T")[0]; renderNutrDiary();
+  });
+  const todayBtn = document.getElementById("nutrGoToday");
+  if (todayBtn) todayBtn.addEventListener("click", () => { nutrDiaryDate = todayISO(); renderNutrDiary(); });
+
   // Калории на дашборде
   const _cm = document.querySelector("#calorieMini"); if(_cm) _cm.innerHTML = `
     <div class="metric">${totals.kcal}</div>
@@ -1437,15 +1719,15 @@ function bindNutrDiaryEvents() {
   document.querySelectorAll(".nutr-meal-del").forEach(btn => {
     btn.addEventListener("click", () => {
       const idx = Number(btn.closest("[data-meal-idx]").dataset.mealIdx);
-      getTodayNutr().meals.splice(idx, 1);
-      saveDB("nutrition_diary"); renderNutrDiary();
+      const dayData = getNutrDB().diary[nutrDiaryDate];
+      if (dayData) { dayData.meals.splice(idx, 1); saveDB("nutrition_diary"); renderNutrDiary(); }
     });
   });
   document.querySelectorAll(".nutr-act-del").forEach(btn => {
     btn.addEventListener("click", () => {
       const idx = Number(btn.closest("[data-act-idx]").dataset.actIdx);
-      getTodayNutr().activity.splice(idx, 1);
-      saveDB("nutrition_diary"); renderNutrDiary();
+      const dayData = getNutrDB().diary[nutrDiaryDate];
+      if (dayData) { dayData.activity.splice(idx, 1); saveDB("nutrition_diary"); renderNutrDiary(); }
     });
   });
 }
@@ -1596,7 +1878,8 @@ function openNutrActivityModal() {
     root.querySelector("#act-save").addEventListener("click", () => {
       const name = root.querySelector("#act-name").value.trim() || "Активность";
       const kcal = Number(root.querySelector("#act-kcal").value) || 0;
-      getTodayNutr().activity.push({ name, kcal });
+      if (!getNutrDB().diary[nutrDiaryDate]) getNutrDB().diary[nutrDiaryDate] = { meals: [], activity: [] };
+      getNutrDB().diary[nutrDiaryDate].activity.push({ name, kcal });
       saveDB("nutrition_diary"); renderNutrDiary(); closeModal();
     });
     root.querySelector("#act-name").focus();
