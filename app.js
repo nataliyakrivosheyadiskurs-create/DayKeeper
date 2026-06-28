@@ -1318,9 +1318,15 @@ document.addEventListener("click", e => {
   if (!btn) return;
   nutrActiveTab = btn.dataset.nutrTab;
   document.querySelectorAll(".nutr-tab[data-nutr-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
-  document.querySelectorAll(".nutr-pane[id^='nutrPane-']").forEach(p => p.style.display = "none");
+  document.querySelectorAll(".nutr-pane[id^='nutrPane-']").forEach(p => {
+    p.classList.remove("nutr-pane-visible");
+    p.setAttribute("hidden", "");
+  });
   const pane = document.getElementById("nutrPane-" + nutrActiveTab);
-  if (pane) pane.style.display = "grid";
+  if (pane) {
+    pane.removeAttribute("hidden");
+    pane.classList.add("nutr-pane-visible");
+  }
   renderNutrTab(nutrActiveTab);
 });
 
