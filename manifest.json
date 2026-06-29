@@ -1,0 +1,60 @@
+{
+  "name": "DayKeeper",
+  "short_name": "DayKeeper",
+  "description": "Дневник заботы о себе",
+  "start_url": "/DayKeeper/",
+  "scope": "/DayKeeper/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fbf4ea",
+  "theme_color": "#fbf4ea",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/DayKeeper/assets/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/DayKeeper/assets/logo-circle-64.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/DayKeeper/assets/apple-touch-icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/DayKeeper/assets/logo-circle-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "health", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Задачи",
+      "short_name": "Задачи",
+      "description": "Открыть список задач",
+      "url": "/DayKeeper/?section=tasks",
+      "icons": [{ "src": "/DayKeeper/assets/logo-circle-64.png", "sizes": "64x64" }]
+    },
+    {
+      "name": "Питание",
+      "short_name": "Питание",
+      "description": "Дневник питания",
+      "url": "/DayKeeper/?section=nutrition",
+      "icons": [{ "src": "/DayKeeper/assets/logo-circle-64.png", "sizes": "64x64" }]
+    },
+    {
+      "name": "Дневник",
+      "short_name": "Дневник",
+      "description": "Личный дневник",
+      "url": "/DayKeeper/?section=diary",
+      "icons": [{ "src": "/DayKeeper/assets/logo-circle-64.png", "sizes": "64x64" }]
+    }
+  ]
+}
