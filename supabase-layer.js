@@ -1,13 +1,14 @@
 /* =========================================================
-   DAYKEEPER — supabase-layer.js  v2
-   Авторизация + синхронизация с Supabase.
-   Подключается ПЕРЕД app.js.
+   DAYKEEPER — supabase-layer.js  v3
+   Авторизация + надёжная синхронизация с Supabase.
    ========================================================= */
 
 const SUPABASE_URL  = "https://cnzhzycjcndktcmlprky.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuemh6eWNqY25ka3RjbWxwcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1Mzc1NjMsImV4cCI6MjA5MDExMzU2M30.Zdhen0EO1ce01lWCabBJRmVo2Nxq_So9jh5Ggq_Rx5M";
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
 
 let currentUser = null;
 
@@ -32,8 +33,7 @@ function showAppScreen(user) {
       el.innerHTML = `<span class="topbar-email">${user.email}</span><button class="topbar-logout" id="logoutBtn">Выйти</button>`;
       topbar.appendChild(el);
       document.getElementById("logoutBtn").addEventListener("click", async () => {
-        // Убедимся что всё сохранено перед выходом
-        await flushSync();
+        await flushSyncNow();
         await sb.auth.signOut();
         currentUser = null;
         document.getElementById("topbarUser").remove();
@@ -44,9 +44,9 @@ function showAppScreen(user) {
 }
 
 document.getElementById("authLoginBtn").addEventListener("click", async () => {
-  const email = document.getElementById("authEmail").value.trim();
+  const email    = document.getElementById("authEmail").value.trim();
   const password = document.getElementById("authPassword").value;
-  const errEl = document.getElementById("authError");
+  const errEl    = document.getElementById("authError");
   errEl.style.display = "none";
   if (!email || !password) { errEl.textContent = "Введи email и пароль"; errEl.style.display = "block"; return; }
   const btn = document.getElementById("authLoginBtn");
@@ -63,9 +63,9 @@ document.getElementById("authLoginBtn").addEventListener("click", async () => {
 });
 
 document.getElementById("authRegisterBtn").addEventListener("click", async () => {
-  const email = document.getElementById("authEmail").value.trim();
+  const email    = document.getElementById("authEmail").value.trim();
   const password = document.getElementById("authPassword").value;
-  const errEl = document.getElementById("authError");
+  const errEl    = document.getElementById("authError");
   errEl.style.display = "none";
   if (!email || !password) { errEl.textContent = "Введи email и пароль"; errEl.style.display = "block"; return; }
   if (password.length < 6) { errEl.textContent = "Пароль минимум 6 символов"; errEl.style.display = "block"; return; }
@@ -115,14 +115,12 @@ async function loadAllDataFromSupabase() {
       sb.from("dk_birthdays").select("*").eq("user_id", uid).order("name"),
     ]);
 
-    // Задачи
-    if (tasks.data) DB.tasks = tasks.data.map(t => ({
+    if (tasks.data)    DB.tasks = tasks.data.map(t => ({
       id: t.id, title: t.title, desc: t.description || "",
       date: t.date, time: t.time || "", tag: t.tag || "Личное",
       done: t.done, created: new Date(t.created_at).getTime(),
     }));
 
-    // Привычки + логи
     const logsByHabit = {};
     (habitLogs.data || []).forEach(l => {
       if (!logsByHabit[l.habit_id]) logsByHabit[l.habit_id] = {};
@@ -133,7 +131,6 @@ async function loadAllDataFromSupabase() {
       log: logsByHabit[h.id] || {}, created: new Date(h.created_at).getTime(),
     }));
 
-    // Рутина
     if (routines.data) DB.routines = routines.data.map(r => ({
       id: r.id, title: r.title, type: r.type,
       time: r.time || "", weekdays: r.weekdays || [],
@@ -141,29 +138,26 @@ async function loadAllDataFromSupabase() {
       lastDone: r.last_done || null,
     }));
 
-    // Эмоции
     if (moods.data) DB.moodEntries = moods.data.map(m => ({
       id: m.id, date: m.entry_date, time: m.entry_time || "",
       tone: m.tone, emotions: m.emotions || [], events: m.events || [],
       note: m.note || "", created: new Date(m.created_at).getTime(),
     }));
 
-    // Параметры тела
     if (body.data) DB.bodyMetrics = body.data.map(b => ({
       id: b.id, date: b.metric_date,
       weight: b.weight, waist: b.waist, chest: b.chest, hips: b.hips,
     }));
 
-    // Питание
-    if (!DB.nutrition) DB.nutrition = { goal: {kcal:1500,protein:105,carbs:160,fat:55}, apiKey: "", preferences: "", diary: {}, dishes: [], products: [] };
+    if (!DB.nutrition) DB.nutrition = { goal:{kcal:1500,protein:105,carbs:160,fat:55}, apiKey:"", preferences:"", diary:{}, dishes:[], products:[] };
     DB.nutrition.diary = {};
     DB.calorieLog = {};
     (nutritionDiary.data || []).forEach(d => {
-      const meals = Array.isArray(d.meals) ? d.meals : (d.meals ? Object.values(d.meals) : []);
+      const meals    = Array.isArray(d.meals)    ? d.meals    : (d.meals    ? Object.values(d.meals)    : []);
       const activity = Array.isArray(d.activity) ? d.activity : (d.activity ? Object.values(d.activity) : []);
       DB.nutrition.diary[d.diary_date] = { meals, activity };
-      const kcal = meals.reduce((s, m) => s + (Number(m.kcal)||0), 0);
-      const burned = activity.reduce((s, a) => s + (Number(a.kcal)||0), 0);
+      const kcal   = meals.reduce((s,m) => s + (Number(m.kcal)||0), 0);
+      const burned = activity.reduce((s,a) => s + (Number(a.kcal)||0), 0);
       DB.calorieLog[d.diary_date] = { eaten: kcal, burned, meals };
     });
 
@@ -183,30 +177,26 @@ async function loadAllDataFromSupabase() {
       DB.nutrition.preferences = nutritionGoal.data.preferences || "";
     }
 
-    // Покупки
     if (shopping.data) DB.shopping = shopping.data.map(g => ({
       id: g.id, group: g.group_name, items: g.items || [],
     }));
 
-    // Дневник
     if (diary.data) DB.diary = diary.data.map(e => ({
       id: e.id, title: e.title || "", text: e.body,
       tags: e.tags || [], photos: e.photos || [],
       created: new Date(e.created_at).getTime(),
     }));
 
-    // Дни рождения
     if (birthdays.data) DB.birthdays = birthdays.data.map(b => ({
       id: b.id, name: b.name, mmdd: b.mmdd, note: b.note || "",
     }));
 
-    // Сохраняем как кэш и рендерим
-    if (typeof saveDB === "function") saveDB();
+    if (typeof saveDB === "function") saveDB(); // обновить localStorage-кэш
     rerenderAll();
-    console.log("[DK] Данные загружены из Supabase");
+    console.log("[DK] ✓ Данные загружены из Supabase");
 
   } catch (err) {
-    console.error("[DK] Ошибка загрузки из Supabase:", err);
+    console.error("[DK] ✗ Ошибка загрузки:", err);
   }
 }
 
@@ -214,7 +204,6 @@ function safeRender(name, fn) {
   try { if (typeof fn === "function") fn(); }
   catch(e) { console.warn("[DK] render error in " + name + ":", e.message); }
 }
-
 function rerenderAll() {
   safeRender("tasks",         renderTasks);
   safeRender("habits",        renderHabits);
@@ -229,87 +218,98 @@ function rerenderAll() {
 }
 
 /* =========================================================
-   СИНХРОНИЗАЦИЯ В SUPABASE — upsert, не delete+insert
+   СИНХРОНИЗАЦИЯ — немедленная запись в Supabase
+   Стратегия: каждое изменение пишем сразу, не копим.
+   Очередь нужна только чтобы не спамить при быстрых кликах.
    ========================================================= */
 
-const syncQueue = new Set();
+const pendingTypes = new Set();
 let syncTimer = null;
 let isSyncing = false;
 
-// Экспортируем для app.js
+// Вызывается из saveDB в app.js
 window.__sbQueueSync = function(type) {
-  if (!currentUser) return;
-  syncQueue.add(type);
+  if (!currentUser) {
+    // Если пользователь ещё не загружен — добавим в очередь
+    // и попробуем через 2 секунды
+    pendingTypes.add(type);
+    setTimeout(() => {
+      if (currentUser && pendingTypes.size > 0) {
+        pendingTypes.forEach(t => pendingTypes.add(t));
+        pendingTypes.clear();
+        flushSyncNow();
+      }
+    }, 2000);
+    return;
+  }
+  pendingTypes.add(type);
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(flushSync, 1000);
+  // Короткая задержка 300мс чтобы схлопнуть несколько быстрых изменений
+  syncTimer = setTimeout(flushSyncNow, 300);
 };
 
-async function flushSync() {
-  if (!currentUser || isSyncing) return;
+async function flushSyncNow() {
+  if (!currentUser || isSyncing || pendingTypes.size === 0) return;
   isSyncing = true;
   const uid = currentUser.id;
-  const types = [...syncQueue];
-  syncQueue.clear();
+  const types = [...pendingTypes];
+  pendingTypes.clear();
+
+  console.log("[DK] Синхронизируем:", types.join(", "));
 
   for (const type of types) {
     try {
-      console.log("[DK] syncing:", type);
       if (type === "tasks")              await syncTasks(uid);
-      if (type === "habits")             await syncHabits(uid);
-      if (type === "routines")           await syncRoutines(uid);
-      if (type === "mood")               await syncMood(uid);
-      if (type === "body")               await syncBody(uid);
-      if (type === "nutrition_diary")    await syncNutritionDiary(uid);
-      if (type === "nutrition_products") await syncNutritionProducts(uid);
-      if (type === "nutrition_dishes")   await syncNutritionDishes(uid);
-      if (type === "nutrition_goal")     await syncNutritionGoal(uid);
-      if (type === "shopping")           await syncShopping(uid);
-      if (type === "diary")              await syncDiaryEntries(uid);
-      if (type === "birthdays")          await syncBirthdays(uid);
-      console.log("[DK] synced:", type);
+      else if (type === "habits")        await syncHabits(uid);
+      else if (type === "routines")      await syncRoutines(uid);
+      else if (type === "mood")          await syncMood(uid);
+      else if (type === "body")          await syncBody(uid);
+      else if (type === "nutrition_diary")    await syncNutritionDiary(uid);
+      else if (type === "nutrition_products") await syncNutritionProducts(uid);
+      else if (type === "nutrition_dishes")   await syncNutritionDishes(uid);
+      else if (type === "nutrition_goal")     await syncNutritionGoal(uid);
+      else if (type === "shopping")      await syncShopping(uid);
+      else if (type === "diary")         await syncDiaryEntries(uid);
+      else if (type === "birthdays")     await syncBirthdays(uid);
+      console.log("[DK] ✓ Синхронизировано:", type);
     } catch (e) {
-      console.error("[DK] sync error " + type + ":", e);
-      // Вернуть в очередь при ошибке
-      syncQueue.add(type);
+      console.error("[DK] ✗ Ошибка синхронизации", type, ":", e.message);
+      // При ошибке — вернуть в очередь и повторить
+      pendingTypes.add(type);
     }
   }
+
   isSyncing = false;
 
-  // Если в очереди появились новые — повторим
-  if (syncQueue.size > 0) {
-    syncTimer = setTimeout(flushSync, 2000);
+  // Если остались неудачные — повторим через 3 секунды
+  if (pendingTypes.size > 0) {
+    syncTimer = setTimeout(flushSyncNow, 3000);
   }
 }
 
-/* ---- Каждый тип — upsert по id ---- */
+/* =========================================================
+   ФУНКЦИИ СИНХРОНИЗАЦИИ — UPSERT
+   ========================================================= */
 
 async function syncTasks(uid) {
-  // Удаляем удалённые, upsert существующие
   const { data: existing } = await sb.from("dk_tasks").select("id").eq("user_id", uid);
   const existingIds = new Set((existing||[]).map(r=>r.id));
-  const currentIds = new Set(DB.tasks.map(t=>t.id));
-  // Удаляем то чего нет в DB
-  const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+  const currentIds  = new Set(DB.tasks.map(t=>t.id));
+  const toDelete    = [...existingIds].filter(id => !currentIds.has(id));
   if (toDelete.length) await sb.from("dk_tasks").delete().in("id", toDelete);
-  // Upsert всего что есть
-  if (DB.tasks.length) {
-    await sb.from("dk_tasks").upsert(DB.tasks.map(t => ({
-      id: t.id, user_id: uid, title: t.title, description: t.desc || "",
-      date: t.date || null, time: t.time || "", tag: t.tag || "Личное",
-      done: t.done, created_at: new Date(t.created || Date.now()).toISOString(),
-    })));
-  }
+  if (DB.tasks.length) await sb.from("dk_tasks").upsert(DB.tasks.map(t => ({
+    id: t.id, user_id: uid, title: t.title, description: t.desc || "",
+    date: t.date || null, time: t.time || "", tag: t.tag || "Личное",
+    done: t.done, created_at: new Date(t.created || Date.now()).toISOString(),
+  })));
 }
 
 async function syncHabits(uid) {
-  // Upsert habits
-  if (DB.habits.length) {
-    await sb.from("dk_habits").upsert(DB.habits.map(h => ({
-      id: h.id, user_id: uid, name: h.name, icon: h.icon || "🌿",
-      created_at: new Date(h.created || Date.now()).toISOString(),
-    })));
-  }
-  // Habit logs: delete all for user then reinsert (logs are small)
+  if (DB.habits.length) await sb.from("dk_habits").upsert(DB.habits.map(h => ({
+    id: h.id, user_id: uid, name: h.name, icon: h.icon || "🌿",
+    created_at: new Date(h.created || Date.now()).toISOString(),
+  })));
+  // Логи — delete+insert (маленькие данные, нет уникального ключа по habit_id+date без PK)
   await sb.from("dk_habit_logs").delete().eq("user_id", uid);
   const logs = [];
   DB.habits.forEach(h => {
@@ -323,41 +323,35 @@ async function syncHabits(uid) {
 async function syncRoutines(uid) {
   const { data: existing } = await sb.from("dk_routines").select("id").eq("user_id", uid);
   const existingIds = new Set((existing||[]).map(r=>r.id));
-  const currentIds = new Set(DB.routines.map(r=>r.id));
-  const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+  const currentIds  = new Set(DB.routines.map(r=>r.id));
+  const toDelete    = [...existingIds].filter(id => !currentIds.has(id));
   if (toDelete.length) await sb.from("dk_routines").delete().in("id", toDelete);
-  if (DB.routines.length) {
-    await sb.from("dk_routines").upsert(DB.routines.map(r => ({
-      id: r.id, user_id: uid, title: r.title, type: r.type,
-      time: r.time || "", weekdays: r.weekdays || [],
-      daypart: r.daypart || "", every_days: r.everyDays || 1,
-      last_done: r.lastDone || null,
-    })));
-  }
+  if (DB.routines.length) await sb.from("dk_routines").upsert(DB.routines.map(r => ({
+    id: r.id, user_id: uid, title: r.title, type: r.type,
+    time: r.time || "", weekdays: r.weekdays || [],
+    daypart: r.daypart || "", every_days: r.everyDays || 1,
+    last_done: r.lastDone || null,
+  })));
 }
 
 async function syncMood(uid) {
   const { data: existing } = await sb.from("dk_mood_entries").select("id").eq("user_id", uid);
   const existingIds = new Set((existing||[]).map(r=>r.id));
-  const currentIds = new Set(DB.moodEntries.map(m=>m.id));
-  const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+  const currentIds  = new Set(DB.moodEntries.map(m=>m.id));
+  const toDelete    = [...existingIds].filter(id => !currentIds.has(id));
   if (toDelete.length) await sb.from("dk_mood_entries").delete().in("id", toDelete);
-  if (DB.moodEntries.length) {
-    await sb.from("dk_mood_entries").upsert(DB.moodEntries.map(m => ({
-      id: m.id, user_id: uid, entry_date: m.date, entry_time: m.time || "",
-      tone: m.tone, emotions: m.emotions || [], events: m.events || [],
-      note: m.note || "", created_at: new Date(m.created || Date.now()).toISOString(),
-    })));
-  }
+  if (DB.moodEntries.length) await sb.from("dk_mood_entries").upsert(DB.moodEntries.map(m => ({
+    id: m.id, user_id: uid, entry_date: m.date, entry_time: m.time || "",
+    tone: m.tone, emotions: m.emotions || [], events: m.events || [],
+    note: m.note || "", created_at: new Date(m.created || Date.now()).toISOString(),
+  })));
 }
 
 async function syncBody(uid) {
-  if (DB.bodyMetrics.length) {
-    await sb.from("dk_body_metrics").upsert(DB.bodyMetrics.map(b => ({
-      id: b.id, user_id: uid, metric_date: b.date,
-      weight: b.weight, waist: b.waist, chest: b.chest, hips: b.hips,
-    })));
-  }
+  if (DB.bodyMetrics.length) await sb.from("dk_body_metrics").upsert(DB.bodyMetrics.map(b => ({
+    id: b.id, user_id: uid, metric_date: b.date,
+    weight: b.weight, waist: b.waist, chest: b.chest, hips: b.hips,
+  })));
 }
 
 async function syncNutritionDiary(uid) {
@@ -367,9 +361,7 @@ async function syncNutritionDiary(uid) {
     user_id: uid, diary_date: date,
     meals: day.meals || [], activity: day.activity || [],
   }));
-  if (rows.length) {
-    await sb.from("dk_nutrition_diary").upsert(rows, { onConflict: "user_id,diary_date" });
-  }
+  if (rows.length) await sb.from("dk_nutrition_diary").upsert(rows, { onConflict: "user_id,diary_date" });
 }
 
 async function syncNutritionProducts(uid) {
@@ -377,8 +369,8 @@ async function syncNutritionProducts(uid) {
   if (!products.length) return;
   const { data: existing } = await sb.from("dk_nutrition_products").select("id").eq("user_id", uid);
   const existingIds = new Set((existing||[]).map(r=>r.id));
-  const currentIds = new Set(products.map(p=>p.id));
-  const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+  const currentIds  = new Set(products.map(p=>p.id));
+  const toDelete    = [...existingIds].filter(id => !currentIds.has(id));
   if (toDelete.length) await sb.from("dk_nutrition_products").delete().in("id", toDelete);
   await sb.from("dk_nutrition_products").upsert(products.map(p => ({
     id: p.id, user_id: uid, name: p.name,
@@ -390,16 +382,14 @@ async function syncNutritionDishes(uid) {
   const dishes = DB.nutrition?.dishes || [];
   const { data: existing } = await sb.from("dk_nutrition_dishes").select("id").eq("user_id", uid);
   const existingIds = new Set((existing||[]).map(r=>r.id));
-  const currentIds = new Set(dishes.map(d=>d.id));
-  const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+  const currentIds  = new Set(dishes.map(d=>d.id));
+  const toDelete    = [...existingIds].filter(id => !currentIds.has(id));
   if (toDelete.length) await sb.from("dk_nutrition_dishes").delete().in("id", toDelete);
-  if (dishes.length) {
-    await sb.from("dk_nutrition_dishes").upsert(dishes.map(d => ({
-      id: d.id, user_id: uid, name: d.name, emoji: d.emoji || "🍽",
-      total_grams: d.totalGrams || 400, portion_grams: d.portionGrams || 200,
-      ingredients: d.ingredients || [],
-    })));
-  }
+  if (dishes.length) await sb.from("dk_nutrition_dishes").upsert(dishes.map(d => ({
+    id: d.id, user_id: uid, name: d.name, emoji: d.emoji || "🍽",
+    total_grams: d.totalGrams || 400, portion_grams: d.portionGrams || 200,
+    ingredients: d.ingredients || [],
+  })));
 }
 
 async function syncNutritionGoal(uid) {
@@ -414,44 +404,82 @@ async function syncNutritionGoal(uid) {
 async function syncShopping(uid) {
   const { data: existing } = await sb.from("dk_shopping").select("id").eq("user_id", uid);
   const existingIds = new Set((existing||[]).map(r=>r.id));
-  const currentIds = new Set(DB.shopping.map(g=>g.id));
-  const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+  const currentIds  = new Set(DB.shopping.map(g=>g.id));
+  const toDelete    = [...existingIds].filter(id => !currentIds.has(id));
   if (toDelete.length) await sb.from("dk_shopping").delete().in("id", toDelete);
-  if (DB.shopping.length) {
-    await sb.from("dk_shopping").upsert(DB.shopping.map((g, i) => ({
-      id: g.id, user_id: uid, group_name: g.group, items: g.items || [], sort_order: i,
-    })));
-  }
+  if (DB.shopping.length) await sb.from("dk_shopping").upsert(DB.shopping.map((g,i) => ({
+    id: g.id, user_id: uid, group_name: g.group, items: g.items || [], sort_order: i,
+  })));
 }
 
 async function syncDiaryEntries(uid) {
   const { data: existing } = await sb.from("dk_diary").select("id").eq("user_id", uid);
   const existingIds = new Set((existing||[]).map(r=>r.id));
-  const currentIds = new Set(DB.diary.map(e=>e.id));
-  const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+  const currentIds  = new Set(DB.diary.map(e=>e.id));
+  const toDelete    = [...existingIds].filter(id => !currentIds.has(id));
   if (toDelete.length) await sb.from("dk_diary").delete().in("id", toDelete);
-  if (DB.diary.length) {
-    await sb.from("dk_diary").upsert(DB.diary.map(e => ({
-      id: e.id, user_id: uid, title: e.title || "", body: e.text,
-      tags: e.tags || [],
-      photos: [], // не храним base64 фото в Supabase — слишком большие
-      created_at: new Date(e.created || Date.now()).toISOString(),
-    })));
-  }
+  if (DB.diary.length) await sb.from("dk_diary").upsert(DB.diary.map(e => ({
+    id: e.id, user_id: uid, title: e.title || "", body: e.text,
+    tags: e.tags || [], photos: [],
+    created_at: new Date(e.created || Date.now()).toISOString(),
+  })));
 }
 
 async function syncBirthdays(uid) {
   const { data: existing } = await sb.from("dk_birthdays").select("id").eq("user_id", uid);
   const existingIds = new Set((existing||[]).map(r=>r.id));
-  const currentIds = new Set(DB.birthdays.map(b=>b.id));
-  const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+  const currentIds  = new Set(DB.birthdays.map(b=>b.id));
+  const toDelete    = [...existingIds].filter(id => !currentIds.has(id));
   if (toDelete.length) await sb.from("dk_birthdays").delete().in("id", toDelete);
-  if (DB.birthdays.length) {
-    await sb.from("dk_birthdays").upsert(DB.birthdays.map(b => ({
-      id: b.id, user_id: uid, name: b.name, mmdd: b.mmdd, note: b.note || "",
-    })));
+  if (DB.birthdays.length) await sb.from("dk_birthdays").upsert(DB.birthdays.map(b => ({
+    id: b.id, user_id: uid, name: b.name, mmdd: b.mmdd, note: b.note || "",
+  })));
+}
+
+/* =========================================================
+   ИНДИКАТОР СИНХРОНИЗАЦИИ
+   ========================================================= */
+function showSyncStatus(status) {
+  let el = document.getElementById("syncStatus");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "syncStatus";
+    el.style.cssText = "position:fixed;bottom:80px;right:12px;z-index:200;font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;background:rgba(255,250,242,.95);border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.1);transition:opacity .3s;pointer-events:none";
+    document.body.appendChild(el);
+  }
+  if (status === "saving") {
+    el.textContent = "💾 Сохраняю...";
+    el.style.opacity = "1";
+  } else if (status === "saved") {
+    el.textContent = "✓ Сохранено";
+    el.style.opacity = "1";
+    setTimeout(() => { el.style.opacity = "0"; }, 2000);
+  } else if (status === "error") {
+    el.textContent = "⚠ Ошибка сохранения";
+    el.style.opacity = "1";
   }
 }
+
+// Оборачиваем flushSyncNow чтобы показывать индикатор
+const _originalFlushSync = flushSyncNow;
+window.__sbQueueSync = function(type) {
+  if (!currentUser) {
+    pendingTypes.add(type);
+    setTimeout(() => { if (currentUser) flushSyncNow(); }, 2000);
+    return;
+  }
+  pendingTypes.add(type);
+  showSyncStatus("saving");
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    try {
+      await flushSyncNow();
+      if (pendingTypes.size === 0) showSyncStatus("saved");
+    } catch(e) {
+      showSyncStatus("error");
+    }
+  }, 300);
+};
 
 /* =========================================================
    ЗАПУСК
@@ -476,16 +504,19 @@ async function syncBirthdays(uid) {
     }
   });
 
-  // Синхронизировать перед закрытием вкладки
+  // Перед закрытием — синхронизировать синхронно (браузер даёт ~50мс)
   window.addEventListener("beforeunload", () => {
-    if (syncQueue.size > 0) flushSync();
+    if (pendingTypes.size > 0) flushSyncNow();
   });
 
-  // Синхронизировать при возврате в вкладку (после сна телефона)
+  // При возврате в приложение после сна телефона
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState === "visible" && currentUser) {
-      // Сначала дошлём несохранённое, потом обновим из базы
-      if (syncQueue.size > 0) await flushSync();
+      if (pendingTypes.size > 0) {
+        // Есть несохранённое — сначала сохраняем
+        await flushSyncNow();
+      }
+      // Потом подгружаем свежее из базы
       await loadAllDataFromSupabase();
     }
   });
